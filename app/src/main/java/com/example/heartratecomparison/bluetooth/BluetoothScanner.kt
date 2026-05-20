@@ -84,7 +84,7 @@ class BluetoothScanner(
             .build()
 
         try {
-            scanner?.startScan(null, settings, callback)
+            scanner.startScan(null, settings, callback)
             Log.d(TAG, "开始 BLE 扫描（过滤心率设备）")
         } catch (e: SecurityException) {
             Log.e(TAG, "没有扫描权限", e)

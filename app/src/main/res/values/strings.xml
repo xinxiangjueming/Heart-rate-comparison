@@ -1,3 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">heartratecomparison</string>
+    <string name="app_name">心率对比</string>
+
+    <!-- MainScreen -->
+    <string name="dialog_exit_title">结束记录？</string>
+    <string name="dialog_exit_message">正在记录数据，确定要结束记录并退出吗？</string>
+    <string name="btn_finish">结束</string>
+    <string name="btn_cancel">取消</string>
+
+    <!-- LeftPanel -->
+    <string name="btn_scanning">搜索中…</string>
+    <string name="btn_recording">记录中…</string>
+    <string name="btn_search">搜索</string>
+
+    <!-- MultiHeartRateChart -->
+    <string name="chart_no_device">暂无设备连接</string>
+    <string name="chart_guide_search">点击「搜索」扫描心率设备</string>
+    <string name="chart_guide_connect">点击设备连接，长按断开</string>
+    <string name="chart_guide_record">长按「搜索」1.5秒开始记录</string>
+    <string name="chart_guide_stop">记录中长按「搜索」3秒停止</string>
+    <string name="chart_waiting">等待记录…</string>
+
+    <!-- DeviceItem -->
+    <string name="desc_bluetooth">蓝牙</string>
+
+    <!-- HeartRateService -->
+    <string name="notif_service_started">服务已启动</string>
+    <string name="notif_record_failed">记录失败</string>
+    <string name="notif_recording">正在记录心率…</string>
+    <string name="notif_record_stopped">记录已停止</string>
+    <string name="notif_action_stop">停止服务</string>
+    <string name="notif_channel_name">心率记录服务</string>
+    <string name="notif_channel_desc">用于后台记录心率数据</string>
+
+    <!-- CsvRecorder -->
+    <string name="error_file_create_failed">文件创建失败</string>
 </resources>

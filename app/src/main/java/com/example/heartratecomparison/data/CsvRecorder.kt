@@ -1,6 +1,7 @@
 package com.example.heartratecomparison.data
 
-import android.os.Environment
+import android.content.Context
+import com.example.heartratecomparison.R
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import java.io.BufferedWriter
@@ -10,7 +11,8 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 class CsvRecorder(
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val context: Context
 ) {
     private val hrChannel = Channel<Pair<String, Int>>(capacity = 1024)
     private var writer: BufferedWriter? = null
@@ -23,10 +25,7 @@ class CsvRecorder(
 
     fun start(connectedDeviceAddresses: List<String>, onError: (String) -> Unit) {
         try {
-            val dir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "Comparison"
-            )
+            val dir = File(context.getExternalFilesDir(null), "Comparison")
             if (!dir.exists()) dir.mkdirs()
             val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val file = File(dir, "heart_$dateStr.csv")
@@ -46,7 +45,7 @@ class CsvRecorder(
                 consumeAndWrite()
             }
         } catch (e: Exception) {
-            onError(e.message ?: "文件创建失败")
+            onError(e.message ?: context.getString(R.string.error_file_create_failed))
         }
     }
 

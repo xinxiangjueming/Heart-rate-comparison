@@ -44,8 +44,15 @@ class BluetoothConnector(
                     if (characteristic != null) {
                         gatt.setCharacteristicNotification(characteristic, true)
                         val descriptor = characteristic.getDescriptor(CCCD_UUID)
-                        descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                        gatt.writeDescriptor(descriptor)
+                        if (descriptor != null) {
+                            @Suppress("DEPRECATION")
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                            } else {
+                                descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                gatt.writeDescriptor(descriptor)
+                            }
+                        }
                         scope.launch(Dispatchers.Main) {
                             onDeviceConnected(device.address)
                         }
@@ -53,9 +60,11 @@ class BluetoothConnector(
                 }
             }
 
+            @Deprecated("Deprecated in API 33")
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
                 if (characteristic.uuid == HEART_RATE_MEASUREMENT_UUID) {
                     scope.launch(Dispatchers.Default) {
+                        @Suppress("DEPRECATION")
                         val hr = parseHeartRate(characteristic.value)
                         withContext(Dispatchers.Main) {
                             onHeartRateReceived(device.address, hr)

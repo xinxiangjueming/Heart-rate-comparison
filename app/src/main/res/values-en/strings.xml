@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Heart Rate Comparison</string>
+
+    <!-- MainScreen -->
+    <string name="dialog_exit_title">Stop Recording?</string>
+    <string name="dialog_exit_message">Recording in progress. Are you sure you want to stop and exit?</string>
+    <string name="btn_finish">Finish</string>
+    <string name="btn_cancel">Cancel</string>
+
+    <!-- LeftPanel -->
+    <string name="btn_scanning">Scanning…</string>
+    <string name="btn_recording">Recording…</string>
+    <string name="btn_search">Search</string>
+
+    <!-- MultiHeartRateChart -->
+    <string name="chart_no_device">No device connected</string>
+    <string name="chart_guide_search">Tap "Search" to scan for heart rate devices</string>
+    <string name="chart_guide_connect">Tap a device to connect, long press to disconnect</string>
+    <string name="chart_guide_record">Long press "Search" for 1.5s to start recording</string>
+    <string name="chart_guide_stop">Long press "Search" for 3s to stop recording</string>
+    <string name="chart_waiting">Waiting to record…</string>
+
+    <!-- DeviceItem -->
+    <string name="desc_bluetooth">Bluetooth</string>
+
+    <!-- HeartRateService -->
+    <string name="notif_service_started">Service started</string>
+    <string name="notif_record_failed">Recording failed</string>
+    <string name="notif_recording">Recording heart rate…</string>
+    <string name="notif_record_stopped">Recording stopped</string>
+    <string name="notif_action_stop">Stop service</string>
+    <string name="notif_channel_name">Heart Rate Service</string>
+    <string name="notif_channel_desc">Background heart rate data recording</string>
+
+    <!-- CsvRecorder -->
+    <string name="error_file_create_failed">Failed to create file</string>
+</resources>

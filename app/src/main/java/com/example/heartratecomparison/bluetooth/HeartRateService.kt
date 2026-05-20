@@ -11,6 +11,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.heartratecomparison.MainActivity
+import com.example.heartratecomparison.R
 import com.example.heartratecomparison.data.CsvRecorder
 import com.example.heartratecomparison.model.DeviceState
 import com.example.heartratecomparison.model.UiDeviceState
@@ -55,7 +56,7 @@ class HeartRateService : Service() {
         Log.d(TAG, "服务 onCreate")
         createNotificationChannel()
         try {
-            startForeground(NOTIFICATION_ID, buildNotification("服务已启动"))
+            startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.notif_service_started)))
             Log.d(TAG, "前台服务已启动")
         } catch (e: SecurityException) {
             Log.e(TAG, "缺少通知权限，前台服务启动失败，服务可能随时被终止", e)
@@ -84,7 +85,7 @@ class HeartRateService : Service() {
             }
         )
 
-        csvRecorder = CsvRecorder(serviceScope)
+        csvRecorder = CsvRecorder(serviceScope, this)
 
         serviceScope.launch {
             while (isActive) {
@@ -174,11 +175,11 @@ class HeartRateService : Service() {
         csvRecorder.start(connectedAddresses) { error ->
             Log.e(TAG, "CSV error: $error")
             isRecording = false
-            updateNotification("记录失败")
+            updateNotification(getString(R.string.notif_record_failed))
             emitState()
         }
         isRecording = true
-        updateNotification("正在记录心率…")
+        updateNotification(getString(R.string.notif_recording))
         emitState()
     }
 
@@ -187,7 +188,7 @@ class HeartRateService : Service() {
         runBlocking { csvRecorder.stop() }
         deviceStates.values.forEach { it.heartRateHistory.clear() }
         isRecording = false
-        updateNotification("记录已停止")
+        updateNotification(getString(R.string.notif_record_stopped))
         emitState()
     }
 
@@ -238,7 +239,7 @@ class HeartRateService : Service() {
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_manage)
             .setContentIntent(pendingIntent)
-            .addAction(android.R.drawable.ic_media_pause, "停止服务", stopIntent)
+            .addAction(android.R.drawable.ic_media_pause, getString(R.string.notif_action_stop), stopIntent)
             .setOngoing(true)
             .build()
     }
@@ -247,10 +248,10 @@ class HeartRateService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "心率记录服务",
+                getString(R.string.notif_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "用于后台记录心率数据"
+                description = getString(R.string.notif_channel_desc)
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)

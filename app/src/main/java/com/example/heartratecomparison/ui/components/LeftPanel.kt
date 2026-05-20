@@ -16,9 +16,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.heartratecomparison.R
 import com.example.heartratecomparison.model.UiDeviceState
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -56,7 +58,7 @@ fun LeftPanel(
                 .pointerInput(Unit) {
                     coroutineScope {
                         awaitEachGesture {
-                            val down = awaitFirstDown()
+                            awaitFirstDown()
                             var longPressTriggered = false
                             val startTime = System.currentTimeMillis()
 
@@ -103,9 +105,9 @@ fun LeftPanel(
         ) {
             Text(
                 text = when {
-                    currentIsScanning -> "搜索中…"
-                    currentIsRecording -> "记录中…"
-                    else -> "搜索"
+                    currentIsScanning -> stringResource(R.string.btn_scanning)
+                    currentIsRecording -> stringResource(R.string.btn_recording)
+                    else -> stringResource(R.string.btn_search)
                 },
                 color = Color.White,
                 fontSize = 16.sp,

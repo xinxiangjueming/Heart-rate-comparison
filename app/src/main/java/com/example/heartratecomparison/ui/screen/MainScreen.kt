@@ -25,8 +25,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.example.heartratecomparison.R
 import com.example.heartratecomparison.bluetooth.HeartRateService
 import com.example.heartratecomparison.ui.chart.MultiHeartRateChart
 import com.example.heartratecomparison.ui.components.LeftPanel
@@ -52,7 +54,7 @@ fun MainScreen() {
     }
 
     val colorPool = listOf(
-        Color.Red, Color(0xFF00BFFF), Color.Green, Color(0xFF800080), Color.Black
+        Color.Red, Color(0xFF00BFFF), Color.Green, Color(0xFF800080), Color(0xFFFF9800)
     )
 
     val uiState by HeartRateService.globalUiState.collectAsState()
@@ -101,15 +103,7 @@ fun MainScreen() {
     }
 
     LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = android.net.Uri.parse("package:${context.packageName}")
-                }
-                context.startActivity(intent)
-            }
-        }
+        // 电池优化改为按需申请，见 onStartRecord
     }
 
     BackHandler(enabled = isRecording) {
@@ -119,8 +113,8 @@ fun MainScreen() {
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
-            title = { Text("结束记录？") },
-            text = { Text("正在记录数据，确定要结束记录并退出吗？") },
+            title = { Text(stringResource(R.string.dialog_exit_title)) },
+            text = { Text(stringResource(R.string.dialog_exit_message)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -131,19 +125,19 @@ fun MainScreen() {
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("结束")
+                    Text(stringResource(R.string.btn_finish))
                 }
             },
             dismissButton = {
                 Button(
                     onClick = { showExitDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.outline)
                 ) {
-                    Text("取消")
+                    Text(stringResource(R.string.btn_cancel))
                 }
             },
             shape = RoundedCornerShape(28.dp),
-            containerColor = Color(0xFFE0E0E0)
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -178,6 +172,16 @@ fun MainScreen() {
                     }
                 },
                 onStartRecord = {
+                    // 电量无限制：按需申请
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                        if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
+                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = android.net.Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        }
+                    }
                     // 短震 50ms
                     try {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

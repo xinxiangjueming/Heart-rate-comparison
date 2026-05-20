@@ -3,6 +3,7 @@ package com.example.heartratecomparison
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -54,11 +55,16 @@ class MainActivity : ComponentActivity() {
 
         // 沉浸式适配
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = android.graphics.Color.rgb(0xE0, 0xE0, 0xE0)
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        window.statusBarColor = if (isDark) {
+            android.graphics.Color.rgb(0x12, 0x12, 0x12)
+        } else {
+            android.graphics.Color.rgb(0xE0, 0xE0, 0xE0)
+        }
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        insetsController.isAppearanceLightStatusBars = true
-        insetsController.isAppearanceLightNavigationBars = true
+        insetsController.isAppearanceLightStatusBars = !isDark
+        insetsController.isAppearanceLightNavigationBars = !isDark
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES

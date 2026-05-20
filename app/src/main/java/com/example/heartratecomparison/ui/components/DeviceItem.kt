@@ -12,8 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.heartratecomparison.R
 import com.example.heartratecomparison.model.UiDeviceState
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -53,8 +55,8 @@ fun DeviceItem(
             )
             Icon(
                 imageVector = Icons.Filled.Bluetooth,
-                contentDescription = "蓝牙",
-                tint = if (deviceState.isConnected) Color.Blue else Color.Black,
+                contentDescription = stringResource(R.string.desc_bluetooth),
+                tint = if (deviceState.isConnected) Color(0xFF64B5F6) else Color(0xFFBDBDBD),
                 modifier = Modifier.weight(1f)
             )
         }
