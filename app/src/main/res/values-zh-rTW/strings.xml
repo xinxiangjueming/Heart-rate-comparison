@@ -7,6 +7,8 @@
     <string name="dialog_exit_message">正在記錄資料，確定要結束記錄並退出嗎？</string>
     <string name="btn_finish">結束</string>
     <string name="btn_cancel">取消</string>
+    <string name="btn_back">返回</string>
+    <string name="btn_confirm">確定</string>
 
     <!-- LeftPanel -->
     <string name="btn_scanning">搜尋中…</string>
@@ -19,6 +21,8 @@
     <string name="chart_guide_connect">點擊裝置連線，長按斷開</string>
     <string name="chart_guide_record">長按「搜尋」1.5秒開始記錄</string>
     <string name="chart_guide_stop">記錄中長按「搜尋」3秒停止</string>
+    <string name="chart_guide_history">無裝置時長按「搜尋」1.5秒查看歷史</string>
+    <string name="chart_guide_share">雙擊歷史檔案分享，長按刪除</string>
     <string name="chart_waiting">等待記錄…</string>
 
     <!-- DeviceItem -->
@@ -35,4 +39,10 @@
 
     <!-- CsvRecorder -->
     <string name="error_file_create_failed">檔案建立失敗</string>
+
+    <!-- HistoryScreen -->
+    <string name="history_empty">暫無歷史記錄</string>
+    <string name="history_file_size">%d KB</string>
+    <string name="history_delete_title">刪除檔案？</string>
+    <string name="history_delete_message">確定要刪除這條歷史記錄嗎？</string>
 </resources>

@@ -7,6 +7,8 @@
     <string name="dialog_exit_message">Recording in progress. Are you sure you want to stop and exit?</string>
     <string name="btn_finish">Finish</string>
     <string name="btn_cancel">Cancel</string>
+    <string name="btn_back">Back</string>
+    <string name="btn_confirm">Confirm</string>
 
     <!-- LeftPanel -->
     <string name="btn_scanning">Scanning…</string>
@@ -19,6 +21,8 @@
     <string name="chart_guide_connect">Tap a device to connect, long press to disconnect</string>
     <string name="chart_guide_record">Long press "Search" for 1.5s to start recording</string>
     <string name="chart_guide_stop">Long press "Search" for 3s to stop recording</string>
+    <string name="chart_guide_history">Long press "Search" for 1.5s to view history (no device)</string>
+    <string name="chart_guide_share">Double-tap to share, long press to delete</string>
     <string name="chart_waiting">Waiting to record…</string>
 
     <!-- DeviceItem -->
@@ -35,4 +39,10 @@
 
     <!-- CsvRecorder -->
     <string name="error_file_create_failed">Failed to create file</string>
+
+    <!-- HistoryScreen -->
+    <string name="history_empty">No history records</string>
+    <string name="history_file_size">%d KB</string>
+    <string name="history_delete_title">Delete file?</string>
+    <string name="history_delete_message">Are you sure you want to delete this record?</string>
 </resources>

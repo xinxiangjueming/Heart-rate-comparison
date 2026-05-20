@@ -70,8 +70,10 @@ fun MainScreen() {
     }
     val isRecording = uiState.isRecording
     val isScanning = uiState.isScanning
+    val hasConnectedDevices = deviceStates.values.any { it.isConnected }
 
     var showExitDialog by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
 
     val statusBarHeight = with(density) {
         WindowInsets.systemBars.getTop(this).toDp()
@@ -141,6 +143,15 @@ fun MainScreen() {
         )
     }
 
+    BackHandler(enabled = showHistory) {
+        showHistory = false
+    }
+
+    if (showHistory) {
+        HistoryScreen(onBack = { showHistory = false })
+        return
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -159,6 +170,7 @@ fun MainScreen() {
                     .fillMaxHeight(),
                 isScanning = isScanning,
                 isRecording = isRecording,
+                hasConnectedDevices = hasConnectedDevices,
                 deviceStates = deviceStates.values.toList(),
                 deviceColors = deviceColors,
                 onScanClick = {
@@ -209,6 +221,7 @@ fun MainScreen() {
                     }
                     sendServiceCommand("STOP_RECORDING")
                 },
+                onShowHistory = { showHistory = true },
                 onDeviceClick = { state ->
                     sendServiceCommand("CONNECT_DEVICE", "device_address" to state.address)
                 },

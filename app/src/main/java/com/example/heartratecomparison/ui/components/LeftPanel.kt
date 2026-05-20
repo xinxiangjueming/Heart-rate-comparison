@@ -33,17 +33,20 @@ fun LeftPanel(
     modifier: Modifier = Modifier,
     isScanning: Boolean,
     isRecording: Boolean,
+    hasConnectedDevices: Boolean,
     deviceStates: List<UiDeviceState>,
     deviceColors: Map<String, Color>,
     onScanClick: () -> Unit,
     onStartRecord: () -> Unit,
     onStopRecord: () -> Unit,
+    onShowHistory: () -> Unit,
     onDeviceClick: (UiDeviceState) -> Unit,
     onDeviceLongClick: (UiDeviceState) -> Unit = {}
 ) {
     // 让手势内部始终能拿到最新的状态值
     val currentIsRecording by rememberUpdatedState(isRecording)
     val currentIsScanning by rememberUpdatedState(isScanning)
+    val currentHasConnectedDevices by rememberUpdatedState(hasConnectedDevices)
 
     Column(
         modifier = modifier.padding(8.dp)
@@ -67,15 +70,19 @@ fun LeftPanel(
                                     delay(50)
                                     val elapsed = System.currentTimeMillis() - startTime
                                     if (!longPressTriggered) {
-                                        // 现在通过 currentIsRecording 获取实时状态
                                         if (currentIsRecording && elapsed >= 3000) {
                                             Log.d(TAG, "长按3秒 → 停止记录")
                                             onStopRecord()
                                             longPressTriggered = true
                                             break
-                                        } else if (!currentIsRecording && elapsed >= 1500) {
+                                        } else if (!currentIsRecording && currentHasConnectedDevices && elapsed >= 1500) {
                                             Log.d(TAG, "长按1.5秒 → 开始记录")
                                             onStartRecord()
+                                            longPressTriggered = true
+                                            break
+                                        } else if (!currentIsRecording && !currentHasConnectedDevices && elapsed >= 1500) {
+                                            Log.d(TAG, "长按1.5秒 → 查看历史")
+                                            onShowHistory()
                                             longPressTriggered = true
                                             break
                                         }
