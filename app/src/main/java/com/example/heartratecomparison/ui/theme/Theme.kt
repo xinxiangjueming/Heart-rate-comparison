@@ -1,11 +1,50 @@
 package com.example.heartratecomparison.ui.theme
 
+import android.annotation.SuppressLint
+import android.content.Context
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+// 系统屏幕圆角，通过 CompositionLocal 传递
+val LocalCornerRadius = compositionLocalOf { 28.dp }
+
+@SuppressLint("NewApi")
+private fun getScreenCornerRadius(context: Context): Dp {
+    val density = context.resources.displayMetrics.density
+
+    // Android 12+ 通用 API
+    if (android.os.Build.VERSION.SDK_INT >= 31) {
+        val display = context.display
+        if (display != null) {
+            // Display.Corner.TOP_LEFT = 0
+            val corner = display.getRoundedCorner(0)
+            if (corner != null) {
+                val radiusPx = corner.radius
+                if (radiusPx > 0) return (radiusPx / density).dp
+            }
+        }
+    }
+
+    // 小米设备专属参数
+    val topRadiusId = context.resources.getIdentifier(
+        "rounded_corner_radius_top", "dimen", "android"
+    )
+    val radiusPx = if (topRadiusId > 0) {
+        context.resources.getDimensionPixelSize(topRadiusId)
+    } else 0
+    return if (radiusPx > 0) {
+        (radiusPx / density).dp
+    } else {
+        28.dp // 兜底值
+    }
+}
 
 private val RedHot = Color(0xFFE53935)
 private val NeutralGray = Color(0xFFE0E0E0)
@@ -33,22 +72,25 @@ private val DarkColors = darkColorScheme(
     onBackground = DarkOnSurface
 )
 
-private val AppShapes = Shapes(
-    small = RoundedCornerShape(28.dp),
-    medium = RoundedCornerShape(28.dp),
-    large = RoundedCornerShape(28.dp)
-)
-
 @Composable
 fun HeartRateComparisonTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    val cornerRadius = remember { getScreenCornerRadius(context) }
+    val appShapes = Shapes(
+        small = RoundedCornerShape(cornerRadius),
+        medium = RoundedCornerShape(cornerRadius),
+        large = RoundedCornerShape(cornerRadius)
+    )
     val colorScheme = if (darkTheme) DarkColors else LightColors
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        shapes = AppShapes,
-        content = content
-    )
+    CompositionLocalProvider(LocalCornerRadius provides cornerRadius) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            shapes = appShapes,
+            content = content
+        )
+    }
 }

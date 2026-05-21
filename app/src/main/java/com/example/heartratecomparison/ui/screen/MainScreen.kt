@@ -131,7 +131,7 @@ fun MainScreen() {
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) { Text(stringResource(R.string.btn_finish)) }
             },
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.large,
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp
         )
@@ -186,9 +186,9 @@ fun MainScreen() {
             val onStopRecord: () -> Unit = {
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        vibrator.vibrate(VibrationEffect.createOneShot(3000, VibrationEffect.DEFAULT_AMPLITUDE))
+                        vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
                     } else {
-                        @Suppress("DEPRECATION") vibrator.vibrate(3000)
+                        @Suppress("DEPRECATION") vibrator.vibrate(50)
                     }
                 } catch (_: SecurityException) {}
                 sendServiceCommand("STOP_RECORDING")
@@ -203,6 +203,7 @@ fun MainScreen() {
             }
 
             val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val isTablet = (LocalConfiguration.current.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK) >= Configuration.SCREENLAYOUT_SIZE_LARGE
 
             // 横屏隐藏状态栏和导航栏
             LaunchedEffect(isLandscape) {
@@ -229,7 +230,9 @@ fun MainScreen() {
                     )
             ) {
                 if (isLandscape) {
-                    // 横屏：左（搜索+设备）右（图表）1:3
+                    // 横屏：左（搜索+设备）右（图表）
+                    // 平板 1:2，手机 1:3
+                    val chartWeight = if (isTablet) 2f else 3f
                     Row(modifier = Modifier.fillMaxSize()) {
                         LeftPanel(
                             modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -247,11 +250,11 @@ fun MainScreen() {
                         )
                         Box(
                             modifier = Modifier
-                                .weight(3f)
+                                .weight(chartWeight)
                                 .fillMaxHeight()
-                                .clip(RoundedCornerShape(28.dp))
+                                .clip(MaterialTheme.shapes.large)
                                 .background(MaterialTheme.colorScheme.surface)
-                                .padding(15.dp)
+                                .padding(start = 15.dp, top = 25.dp, end = 15.dp, bottom = 15.dp)
                         ) {
                             MultiHeartRateChart(
                                 deviceStates = deviceStates,
@@ -281,9 +284,9 @@ fun MainScreen() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f)
-                                .clip(RoundedCornerShape(28.dp))
+                                .clip(MaterialTheme.shapes.large)
                                 .background(MaterialTheme.colorScheme.surface)
-                                .padding(15.dp)
+                                .padding(start = 15.dp, top = 25.dp, end = 15.dp, bottom = 15.dp)
                         ) {
                             MultiHeartRateChart(
                                 deviceStates = deviceStates,

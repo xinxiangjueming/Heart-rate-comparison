@@ -28,7 +28,7 @@ fun DeviceItem(
     onLongClick: () -> Unit
 ) {
     val textColor = if (isRecording && nameColor != null) nameColor else Color.Unspecified
-    val shape = RoundedCornerShape(28.dp)
+    val shape = MaterialTheme.shapes.small
 
     Card(
         modifier = Modifier

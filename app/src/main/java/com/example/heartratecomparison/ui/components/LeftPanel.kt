@@ -56,7 +56,7 @@ fun LeftPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .clip(RoundedCornerShape(28.dp))
+                .clip(MaterialTheme.shapes.small)
                 .background(MaterialTheme.colorScheme.primary)
                 .pointerInput(Unit) {
                     coroutineScope {
