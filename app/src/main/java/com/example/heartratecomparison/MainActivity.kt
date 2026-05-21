@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
@@ -38,6 +39,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // HyperOS 公平运行内存适配
+        MemoryReceiver.getInstance().initialize(this)
+
         // 通知权限请求
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             when {
@@ -53,8 +57,8 @@ class MainActivity : ComponentActivity() {
             startService(Intent(this, HeartRateService::class.java))
         }
 
-        // 沉浸式适配
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        // 沉浸式适配（HyperOS 全屏沉浸模式 + 自由窗口兼容）
+        enableEdgeToEdge()
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)

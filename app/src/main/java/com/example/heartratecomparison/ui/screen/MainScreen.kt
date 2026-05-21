@@ -16,6 +16,8 @@ import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -135,146 +137,161 @@ fun MainScreen() {
         )
     }
 
-    // 历史页面
+    // 历史页面（预测性返回动画）
     BackHandler(enabled = showHistory) { showHistory = false }
-    if (showHistory) {
-        HistoryScreen(onBack = { showHistory = false })
-        return
-    }
-
-    // 共享的回调
-    val onScanClick: () -> Unit = {
-        val needRequest = permissions.any {
-            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (needRequest) permissionLauncher.launch(permissions)
-        else sendServiceCommand("TOGGLE_SCAN")
-    }
-    val onStartRecord: () -> Unit = {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
-                context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = android.net.Uri.parse("package:${context.packageName}")
-                })
-            }
-        }
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+    AnimatedContent(
+        targetState = showHistory,
+        transitionSpec = {
+            if (targetState) {
+                // 进入历史：从右滑入
+                slideInHorizontally(tween(500)) { it } + fadeIn(tween(500)) togetherWith
+                    slideOutHorizontally(tween(500)) { -it / 3 } + fadeOut(tween(250))
             } else {
-                @Suppress("DEPRECATION") vibrator.vibrate(50)
+                // 返回主页：从左滑回（预测性返回手势方向）
+                slideInHorizontally(tween(500)) { -it / 3 } + fadeIn(tween(500)) togetherWith
+                    slideOutHorizontally(tween(500)) { it } + fadeOut(tween(250))
             }
-        } catch (_: SecurityException) {}
-        sendServiceCommand("START_RECORDING")
-    }
-    val onStopRecord: () -> Unit = {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(3000, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION") vibrator.vibrate(3000)
-            }
-        } catch (_: SecurityException) {}
-        sendServiceCommand("STOP_RECORDING")
-    }
-    val onDeviceClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = { state ->
-        sendServiceCommand("CONNECT_DEVICE", "device_address" to state.address)
-    }
-    val onDeviceLongClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = { state ->
-        if (state.isConnected) {
-            sendServiceCommand("DISCONNECT_DEVICE", "device_address" to state.address)
-        }
-    }
-
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-
-    // 横屏隐藏状态栏和导航栏
-    LaunchedEffect(isLandscape) {
-        val window = activity?.window ?: return@LaunchedEffect
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        if (isLandscape) {
-            controller.hide(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
-            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        },
+        label = "history_transition"
+    ) { isHistory ->
+        if (isHistory) {
+            HistoryScreen(onBack = { showHistory = false })
         } else {
-            controller.show(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
-        }
-    }
-
-    // 主内容
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(
-                top = if (isLandscape) 7.dp else statusBarHeight + 7.dp,
-                bottom = if (isLandscape) 7.dp else navigationBarHeight + 7.dp,
-                start = 7.dp,
-                end = 7.dp
-            )
-    ) {
-        if (isLandscape) {
-            // 横屏：左（搜索+设备）右（图表）1:3
-            Row(modifier = Modifier.fillMaxSize()) {
-                LeftPanel(
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    isScanning = isScanning,
-                    isRecording = isRecording,
-                    hasConnectedDevices = hasConnectedDevices,
-                    deviceStates = deviceStates.values.toList(),
-                    deviceColors = deviceColors,
-                    onScanClick = onScanClick,
-                    onStartRecord = onStartRecord,
-                    onStopRecord = onStopRecord,
-                    onShowHistory = { showHistory = true },
-                    onDeviceClick = onDeviceClick,
-                    onDeviceLongClick = onDeviceLongClick
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(3f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(15.dp)
-                ) {
-                    MultiHeartRateChart(
-                        deviceStates = deviceStates,
-                        connectionOrder = connectionOrder,
-                        deviceColors = deviceColors
-                    )
+            // 共享的回调
+            val onScanClick: () -> Unit = {
+                val needRequest = permissions.any {
+                    ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+                }
+                if (needRequest) permissionLauncher.launch(permissions)
+                else sendServiceCommand("TOGGLE_SCAN")
+            }
+            val onStartRecord: () -> Unit = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                    if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
+                        context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                            data = android.net.Uri.parse("package:${context.packageName}")
+                        })
+                    }
+                }
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+                    } else {
+                        @Suppress("DEPRECATION") vibrator.vibrate(50)
+                    }
+                } catch (_: SecurityException) {}
+                sendServiceCommand("START_RECORDING")
+            }
+            val onStopRecord: () -> Unit = {
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vibrator.vibrate(VibrationEffect.createOneShot(3000, VibrationEffect.DEFAULT_AMPLITUDE))
+                    } else {
+                        @Suppress("DEPRECATION") vibrator.vibrate(3000)
+                    }
+                } catch (_: SecurityException) {}
+                sendServiceCommand("STOP_RECORDING")
+            }
+            val onDeviceClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = { state ->
+                sendServiceCommand("CONNECT_DEVICE", "device_address" to state.address)
+            }
+            val onDeviceLongClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = { state ->
+                if (state.isConnected) {
+                    sendServiceCommand("DISCONNECT_DEVICE", "device_address" to state.address)
                 }
             }
-        } else {
-            // 竖屏：上（搜索+设备）下（图表）1:1
-            Column(modifier = Modifier.fillMaxSize()) {
-                LeftPanel(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    isScanning = isScanning,
-                    isRecording = isRecording,
-                    hasConnectedDevices = hasConnectedDevices,
-                    deviceStates = deviceStates.values.toList(),
-                    deviceColors = deviceColors,
-                    onScanClick = onScanClick,
-                    onStartRecord = onStartRecord,
-                    onStopRecord = onStopRecord,
-                    onShowHistory = { showHistory = true },
-                    onDeviceClick = onDeviceClick,
-                    onDeviceLongClick = onDeviceLongClick
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(15.dp)
-                ) {
-                    MultiHeartRateChart(
-                        deviceStates = deviceStates,
-                        connectionOrder = connectionOrder,
-                        deviceColors = deviceColors
+
+            val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+            // 横屏隐藏状态栏和导航栏
+            LaunchedEffect(isLandscape) {
+                val window = activity?.window ?: return@LaunchedEffect
+                val controller = WindowInsetsControllerCompat(window, window.decorView)
+                if (isLandscape) {
+                    controller.hide(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
+                    controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                } else {
+                    controller.show(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
+                }
+            }
+
+            // 主内容
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(
+                        top = if (isLandscape) 7.dp else statusBarHeight + 7.dp,
+                        bottom = if (isLandscape) 7.dp else navigationBarHeight + 7.dp,
+                        start = 7.dp,
+                        end = 7.dp
                     )
+            ) {
+                if (isLandscape) {
+                    // 横屏：左（搜索+设备）右（图表）1:3
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        LeftPanel(
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            isScanning = isScanning,
+                            isRecording = isRecording,
+                            hasConnectedDevices = hasConnectedDevices,
+                            deviceStates = deviceStates.values.toList(),
+                            deviceColors = deviceColors,
+                            onScanClick = onScanClick,
+                            onStartRecord = onStartRecord,
+                            onStopRecord = onStopRecord,
+                            onShowHistory = { showHistory = true },
+                            onDeviceClick = onDeviceClick,
+                            onDeviceLongClick = onDeviceLongClick
+                        )
+                        Box(
+                            modifier = Modifier
+                                .weight(3f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(28.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(15.dp)
+                        ) {
+                            MultiHeartRateChart(
+                                deviceStates = deviceStates,
+                                connectionOrder = connectionOrder,
+                                deviceColors = deviceColors
+                            )
+                        }
+                    }
+                } else {
+                    // 竖屏：上（搜索+设备）下（图表）1:1
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        LeftPanel(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            isScanning = isScanning,
+                            isRecording = isRecording,
+                            hasConnectedDevices = hasConnectedDevices,
+                            deviceStates = deviceStates.values.toList(),
+                            deviceColors = deviceColors,
+                            onScanClick = onScanClick,
+                            onStartRecord = onStartRecord,
+                            onStopRecord = onStopRecord,
+                            onShowHistory = { showHistory = true },
+                            onDeviceClick = onDeviceClick,
+                            onDeviceLongClick = onDeviceLongClick
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .clip(RoundedCornerShape(28.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(15.dp)
+                        ) {
+                            MultiHeartRateChart(
+                                deviceStates = deviceStates,
+                                connectionOrder = connectionOrder,
+                                deviceColors = deviceColors
+                            )
+                        }
+                    }
                 }
             }
         }

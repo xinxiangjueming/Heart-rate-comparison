@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.example.heartratecomparison.R
@@ -67,18 +68,23 @@ fun HistoryScreen(onBack: () -> Unit) {
     if (fileToDelete != null) {
         AlertDialog(
             onDismissRequest = { fileToDelete = null },
-            title = { Text(stringResource(R.string.history_delete_title)) },
+            title = {
+                Text(
+                    text = stringResource(R.string.history_delete_title),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            },
             text = { Text(stringResource(R.string.history_delete_message)) },
             confirmButton = {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = { fileToDelete = null }) {
                         Text(stringResource(R.string.btn_cancel))
                     }
-                    Spacer(modifier = Modifier.width(24.dp))
                     Button(
                         onClick = {
                             fileToDelete?.delete()

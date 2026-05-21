@@ -51,6 +51,25 @@ class HeartRateService : Service() {
             val isRecording: Boolean = false,
             val isScanning: Boolean = false
         )
+
+        /**
+         * HyperOS 公平运行内存适配：系统预警时释放内存
+         * 由 MemoryReceiver 调用
+         */
+        fun releaseMemory() {
+            Log.w(TAG, "releaseMemory: 系统内存预警，释放缓存")
+            // 清除所有设备的心率历史数据（最大的内存消耗）
+            _globalUiState.update { state ->
+                state.copy(
+                    devices = state.devices.mapValues { (_, device) ->
+                        device.copy(heartRateHistory = emptyList())
+                    }
+                )
+            }
+            // 建议 GC 回收
+            Runtime.getRuntime().gc()
+            Log.i(TAG, "releaseMemory: 已释放心率历史数据并触发 GC")
+        }
     }
 
     override fun onCreate() {
