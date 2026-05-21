@@ -25,6 +25,11 @@
     <string name="chart_guide_share">雙擊歷史檔案分享，長按刪除</string>
     <string name="chart_waiting">等待記錄…</string>
 
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">雙指縮放X軸，單指滑動瀏覽</string>
+    <string name="chart_reset_guide">長按3秒重置縮放</string>
+    <string name="chart_legend_guide">點擊圖例顯示/隱藏曲線</string>
+
     <!-- DeviceItem -->
     <string name="desc_bluetooth">藍牙</string>
 

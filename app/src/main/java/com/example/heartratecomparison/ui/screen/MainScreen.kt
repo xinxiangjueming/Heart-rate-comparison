@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.example.heartratecomparison.R
 import com.example.heartratecomparison.bluetooth.HeartRateService
 import com.example.heartratecomparison.ui.chart.MultiHeartRateChart
@@ -113,27 +114,21 @@ fun MainScreen() {
             title = { Text(stringResource(R.string.dialog_exit_title)) },
             text = { Text(stringResource(R.string.dialog_exit_message)) },
             confirmButton = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(onClick = { showExitDialog = false }) {
-                        Text(stringResource(R.string.btn_cancel))
-                    }
-                    Spacer(modifier = Modifier.width(24.dp))
-                    Button(
-                        onClick = {
-                            showExitDialog = false
-                            sendServiceCommand("STOP_RECORDING")
-                            sendServiceCommand("STOP_SERVICE")
-                            activity?.finish()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) { Text(stringResource(R.string.btn_finish)) }
+                TextButton(onClick = { showExitDialog = false }) {
+                    Text(stringResource(R.string.btn_cancel))
                 }
             },
-            dismissButton = {},
+            dismissButton = {
+                Button(
+                    onClick = {
+                        showExitDialog = false
+                        sendServiceCommand("STOP_RECORDING")
+                        sendServiceCommand("STOP_SERVICE")
+                        activity?.finish()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) { Text(stringResource(R.string.btn_finish)) }
+            },
             shape = RoundedCornerShape(28.dp),
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp
@@ -194,14 +189,26 @@ fun MainScreen() {
 
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
+    // 横屏隐藏状态栏和导航栏
+    LaunchedEffect(isLandscape) {
+        val window = activity?.window ?: return@LaunchedEffect
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        if (isLandscape) {
+            controller.hide(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            controller.show(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
+        }
+    }
+
     // 主内容
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(
-                top = statusBarHeight + 7.dp,
-                bottom = navigationBarHeight + 7.dp,
+                top = if (isLandscape) 7.dp else statusBarHeight + 7.dp,
+                bottom = if (isLandscape) 7.dp else navigationBarHeight + 7.dp,
                 start = 7.dp,
                 end = 7.dp
             )

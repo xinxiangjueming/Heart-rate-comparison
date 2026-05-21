@@ -118,7 +118,7 @@ class BluetoothConnector(
     }
 
     fun disconnectAll() {
-        gattMap.values.forEach { gatt ->
+        gattMap.values.toList().forEach { gatt ->
             gatt.disconnect()
             gatt.close()
         }

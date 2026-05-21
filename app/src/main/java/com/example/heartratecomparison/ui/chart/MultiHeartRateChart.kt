@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.heartratecomparison.R
 import com.example.heartratecomparison.model.UiDeviceState
 
@@ -100,85 +101,128 @@ fun MultiHeartRateChart(
     val axisColor = if (isDark) Color(0xFF888888) else Color.DarkGray
     val gridColor = if (isDark) Color(0xFF444444) else Color.LightGray
 
-    Row(modifier = Modifier.fillMaxSize()) {
-        // 左侧 30dp 留白区域，Y 轴数值
-        Canvas(
-            modifier = Modifier
-                .width(30.dp)
-                .fillMaxHeight()
-        ) {
-            val textPaint = android.graphics.Paint().apply {
-                color = labelColor
-                textSize = 26f + with(density) { 5.dp.toPx() }
-                textAlign = android.graphics.Paint.Align.RIGHT
+    // 时间格式化：不足1分钟显示 "XX s"，超过1分钟显示 "X min"
+    fun formatTime(seconds: Int): String {
+        return if (seconds < 60) "${seconds} s" else "${seconds / 60} min"
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // 图表区域（Y轴 + 曲线）
+        Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            // 左侧 25dp 留白区域，Y 轴数值
+            Canvas(
+                modifier = Modifier
+                    .width(25.dp)
+                    .fillMaxHeight()
+            ) {
+                val textPaint = android.graphics.Paint().apply {
+                    color = labelColor
+                    textSize = 26f + with(density) { 5.dp.toPx() }
+                    textAlign = android.graphics.Paint.Align.RIGHT
+                }
+                // 与图表边框保持 3dp 间距
+                val offsetX = with(density) { 3.dp.toPx() }
+                val height = size.height
+                for (bpm in listOf(yMax, (yMin + yMax) / 2, yMin)) {
+                    val y = height - (bpm - yMin) / (yMax - yMin) * height
+                    drawContext.canvas.nativeCanvas.drawText(
+                        "${bpm.toInt()}",
+                        size.width - offsetX,   // 右对齐再左移 3dp
+                        y + 8f,
+                        textPaint
+                    )
+                }
             }
-            // 与图表边框保持 3dp 间距
-            val offsetX = with(density) { 3.dp.toPx() }
-            val height = size.height
-            for (bpm in listOf(yMax, (yMin + yMax) / 2, yMin)) {
-                val y = height - (bpm - yMin) / (yMax - yMin) * height
-                drawContext.canvas.nativeCanvas.drawText(
-                    "${bpm.toInt()}",
-                    size.width - offsetX,   // 右对齐再左移 3dp
-                    y + 8f,
-                    textPaint
-                )
+
+            // 图表区域（曲线 + 网格 + 填充）
+            Canvas(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            ) {
+                val width = size.width
+                val height = size.height
+
+                // 坐标轴边框
+                drawLine(axisColor, Offset(0f, 0f), Offset(0f, height), strokeWidth = 3f)
+                drawLine(axisColor, Offset(0f, height), Offset(width, height), strokeWidth = 3f)
+
+                // 水平网格线（虚线，跳过最底部与X轴重合的线）
+                val dashEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
+                for (bpm in (yMin.toInt() + 10)..yMax.toInt() step 10) {
+                    val y = height - (bpm - yMin) / (yMax - yMin) * height
+                    drawLine(gridColor, Offset(0f, y), Offset(width, y), strokeWidth = 1f, pathEffect = dashEffect)
+                }
+
+                // 垂直网格线（虚线，跳过最左侧与Y轴重合的线）
+                val verticalLines = 5
+                for (i in 1 until verticalLines) {
+                    val x = width * i / (verticalLines - 1)
+                    drawLine(gridColor, Offset(x, 0f), Offset(x, height), strokeWidth = 1f, pathEffect = dashEffect)
+                }
+
+                // 绘制曲线及背景填充
+                for ((addr, state) in connected) {
+                    val history = state.heartRateHistory.takeLast(300)
+                    if (history.size < 2) continue
+                    val color = deviceColors[addr] ?: Color.Gray
+                    val fillColor = color.copy(alpha = 0.15f)
+
+                    // 曲线路径
+                    val linePath = Path()
+                    history.forEachIndexed { index, hr ->
+                        val x = (index.toFloat() / (history.size - 1)) * width
+                        val y = height - (hr - yMin) / (yMax - yMin) * height
+                        if (index == 0) linePath.moveTo(x, y) else linePath.lineTo(x, y)
+                    }
+
+                    // 填充路径：曲线到底部封闭
+                    val fillPath = Path().apply {
+                        addPath(linePath)
+                        lineTo(width, height)
+                        lineTo(0f, height)
+                        close()
+                    }
+
+                    // 先填充，再描边
+                    drawPath(fillPath, fillColor, style = Fill)
+                    drawPath(linePath, color, style = Stroke(width = 3f))
+                }
             }
         }
 
-        // 图表区域（曲线 + 网格 + 填充）
-        Canvas(
+        // 底部时间标签
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
+                .fillMaxWidth()
+                .height(24.dp)
         ) {
-            val width = size.width
-            val height = size.height
+            // 与 Y 轴等宽的占位
+            Spacer(modifier = Modifier.width(25.dp))
+            // 时间标签
+            Row(modifier = Modifier.weight(1f)) {
+                val maxHistorySize = connected.maxOfOrNull { it.second.heartRateHistory.size } ?: 0
+                val totalSeconds = maxHistorySize.coerceAtLeast(1)
 
-            // 坐标轴边框
-            drawLine(axisColor, Offset(0f, 0f), Offset(0f, height), strokeWidth = 3f)
-            drawLine(axisColor, Offset(0f, height), Offset(width, height), strokeWidth = 3f)
-
-            // 水平网格线（虚线，跳过最底部与X轴重合的线）
-            val dashEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
-            for (bpm in (yMin.toInt() + 10)..yMax.toInt() step 10) {
-                val y = height - (bpm - yMin) / (yMax - yMin) * height
-                drawLine(gridColor, Offset(0f, y), Offset(width, y), strokeWidth = 1f, pathEffect = dashEffect)
-            }
-
-            // 垂直网格线（虚线，跳过最左侧与Y轴重合的线）
-            val verticalLines = 5
-            for (i in 1 until verticalLines) {
-                val x = width * i / (verticalLines - 1)
-                drawLine(gridColor, Offset(x, 0f), Offset(x, height), strokeWidth = 1f, pathEffect = dashEffect)
-            }
-
-            // 绘制曲线及背景填充
-            for ((addr, state) in connected) {
-                val history = state.heartRateHistory.takeLast(300)
-                if (history.size < 2) continue
-                val color = deviceColors[addr] ?: Color.Gray
-                val fillColor = color.copy(alpha = 0.15f)
-
-                // 曲线路径
-                val linePath = Path()
-                history.forEachIndexed { index, hr ->
-                    val x = (index.toFloat() / (history.size - 1)) * width
-                    val y = height - (hr - yMin) / (yMax - yMin) * height
-                    if (index == 0) linePath.moveTo(x, y) else linePath.lineTo(x, y)
+                Text(
+                    text = formatTime(0),
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                if (totalSeconds > 1) {
+                    Text(
+                        text = formatTime(totalSeconds / 2),
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
                 }
-
-                // 填充路径：曲线到底部封闭
-                val fillPath = Path().apply {
-                    addPath(linePath)
-                    lineTo(width, height)
-                    lineTo(0f, height)
-                    close()
-                }
-
-                // 先填充，再描边
-                drawPath(fillPath, fillColor, style = Fill)
-                drawPath(linePath, color, style = Stroke(width = 3f))
+                Text(
+                    text = formatTime(totalSeconds),
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
             }
         }
     }

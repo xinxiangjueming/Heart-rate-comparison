@@ -25,6 +25,11 @@
     <string name="chart_guide_share">Double-tap to share, long press to delete</string>
     <string name="chart_waiting">Waiting to record…</string>
 
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">Pinch to zoom X-axis, swipe to pan</string>
+    <string name="chart_reset_guide">Long press 3s to reset zoom</string>
+    <string name="chart_legend_guide">Tap legend to show/hide curves</string>
+
     <!-- DeviceItem -->
     <string name="desc_bluetooth">Bluetooth</string>
 

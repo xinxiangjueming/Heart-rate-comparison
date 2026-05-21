@@ -118,7 +118,8 @@ fun LeftPanel(
                 },
                 color = Color.White,
                 fontSize = 16.sp,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
         }
 

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Comparaison de fréquence cardiaque</string>
+
+    <!-- MainScreen -->
+    <string name="dialog_exit_title">Arrêter l\'enregistrement ?</string>
+    <string name="dialog_exit_message">Enregistrement en cours. Voulez-vous vraiment arrêter et quitter ?</string>
+    <string name="btn_finish">Terminer</string>
+    <string name="btn_cancel">Annuler</string>
+    <string name="btn_back">Retour</string>
+    <string name="btn_confirm">Confirmer</string>
+
+    <!-- LeftPanel -->
+    <string name="btn_scanning">Recherche…</string>
+    <string name="btn_recording">Enregistrement…</string>
+    <string name="btn_search">Rechercher</string>
+
+    <!-- MultiHeartRateChart -->
+    <string name="chart_no_device">Aucun appareil connecté</string>
+    <string name="chart_guide_search">Appuyez sur « Rechercher » pour scanner les appareils</string>
+    <string name="chart_guide_connect">Appuyez sur un appareil pour connecter, maintenez pour déconnecter</string>
+    <string name="chart_guide_record">Maintenez « Rechercher » 1,5 s pour démarrer l\'enregistrement</string>
+    <string name="chart_guide_stop">Maintenez « Rechercher » 3 s pour arrêter l\'enregistrement</string>
+    <string name="chart_guide_history">Maintenez « Rechercher » 1,5 s pour voir l\'historique (sans appareil)</string>
+    <string name="chart_guide_share">Double-appui pour partager, appui long pour supprimer</string>
+    <string name="chart_waiting">En attente d\'enregistrement…</string>
+
+    <!-- DeviceItem -->
+    <string name="desc_bluetooth">Bluetooth</string>
+
+    <!-- HeartRateService -->
+    <string name="notif_service_started">Service démarré</string>
+    <string name="notif_record_failed">Échec de l\'enregistrement</string>
+    <string name="notif_recording">Enregistrement de la fréquence cardiaque…</string>
+    <string name="notif_record_stopped">Enregistrement arrêté</string>
+    <string name="notif_action_stop">Arrêter le service</string>
+    <string name="notif_channel_name">Service de fréquence cardiaque</string>
+    <string name="notif_channel_desc">Enregistrement des données de fréquence cardiaque en arrière-plan</string>
+
+    <!-- CsvRecorder -->
+    <string name="error_file_create_failed">Échec de la création du fichier</string>
+
+    <!-- HistoryScreen -->
+    <string name="history_empty">Aucun historique</string>
+    <string name="history_file_size">%d Ko</string>
+    <string name="history_delete_title">Supprimer le fichier ?</string>
+    <string name="history_delete_message">Voulez-vous vraiment supprimer cet enregistrement ?</string>
+
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">Pincer pour zoomer sur l\'axe X, glisser pour naviguer</string>
+    <string name="chart_reset_guide">Appui long 3 s pour réinitialiser le zoom</string>
+    <string name="chart_legend_guide">Appuyez sur la légende pour afficher/masquer les courbes</string>
+</resources>

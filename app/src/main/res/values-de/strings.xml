@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Herzfrequenzvergleich</string>
+
+    <!-- MainScreen -->
+    <string name="dialog_exit_title">Aufzeichnung beenden?</string>
+    <string name="dialog_exit_message">Aufzeichnung läuft. Möchten Sie wirklich beenden?</string>
+    <string name="btn_finish">Beenden</string>
+    <string name="btn_cancel">Abbrechen</string>
+    <string name="btn_back">Zurück</string>
+    <string name="btn_confirm">Bestätigen</string>
+
+    <!-- LeftPanel -->
+    <string name="btn_scanning">Suche…</string>
+    <string name="btn_recording">Aufzeichnung…</string>
+    <string name="btn_search">Suchen</string>
+
+    <!-- MultiHeartRateChart -->
+    <string name="chart_no_device">Kein Gerät verbunden</string>
+    <string name="chart_guide_search">Tippen Sie auf „Suchen", um Herzfrequenzgeräte zu scannen</string>
+    <string name="chart_guide_connect">Tippen Sie auf ein Gerät zum Verbinden, langes Drücken zum Trennen</string>
+    <string name="chart_guide_record">„Suchen" 1,5 s gedrückt halten zum Starten</string>
+    <string name="chart_guide_stop">„Suchen" 3 s gedrückt halten zum Stoppen</string>
+    <string name="chart_guide_history">„Suchen" 1,5 s gedrückt halten für Verlauf (ohne Gerät)</string>
+    <string name="chart_guide_share">Doppeltippen zum Teilen, langes Drücken zum Löschen</string>
+    <string name="chart_waiting">Warte auf Aufzeichnung…</string>
+
+    <!-- DeviceItem -->
+    <string name="desc_bluetooth">Bluetooth</string>
+
+    <!-- HeartRateService -->
+    <string name="notif_service_started">Dienst gestartet</string>
+    <string name="notif_record_failed">Aufzeichnung fehlgeschlagen</string>
+    <string name="notif_recording">Herzfrequenz wird aufgezeichnet…</string>
+    <string name="notif_record_stopped">Aufzeichnung gestoppt</string>
+    <string name="notif_action_stop">Dienst stoppen</string>
+    <string name="notif_channel_name">Herzfrequenzdienst</string>
+    <string name="notif_channel_desc">Hintergrundaufzeichnung der Herzfrequenzdaten</string>
+
+    <!-- CsvRecorder -->
+    <string name="error_file_create_failed">Datei konnte nicht erstellt werden</string>
+
+    <!-- HistoryScreen -->
+    <string name="history_empty">Kein Verlauf</string>
+    <string name="history_file_size">%d KB</string>
+    <string name="history_delete_title">Datei löschen?</string>
+    <string name="history_delete_message">Möchten Sie diesen Eintrag wirklich löschen?</string>
+
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">Zwei Finger zum Zoomen der X-Achse, wischen zum Scrollen</string>
+    <string name="chart_reset_guide">3 s gedrückt halten zum Zoom-Reset</string>
+    <string name="chart_legend_guide">Legende antippen zum Ein-/Ausblenden der Kurven</string>
+</resources>

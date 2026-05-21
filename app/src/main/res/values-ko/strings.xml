@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">심박수 비교</string>
+
+    <!-- MainScreen -->
+    <string name="dialog_exit_title">기록을 종료하시겠습니까?</string>
+    <string name="dialog_exit_message">기록 중입니다. 기록을 중단하고 종료하시겠습니까?</string>
+    <string name="btn_finish">종료</string>
+    <string name="btn_cancel">취소</string>
+    <string name="btn_back">뒤로</string>
+    <string name="btn_confirm">확인</string>
+
+    <!-- LeftPanel -->
+    <string name="btn_scanning">검색 중…</string>
+    <string name="btn_recording">기록 중…</string>
+    <string name="btn_search">검색</string>
+
+    <!-- MultiHeartRateChart -->
+    <string name="chart_no_device">연결된 기기 없음</string>
+    <string name="chart_guide_search">「검색」을 탭하여 심박수 기기를 스캔하세요</string>
+    <string name="chart_guide_connect">기기를 탭하여 연결, 길게 눌러 연결 해제</string>
+    <string name="chart_guide_record">「검색」을 1.5초 길게 눌러 기록 시작</string>
+    <string name="chart_guide_stop">기록 중 「검색」을 3초 길게 눌러 중지</string>
+    <string name="chart_guide_history">기기 없을 때 「검색」을 1.5초 길게 눌러 기록 보기</string>
+    <string name="chart_guide_share">기록 파일 두 번 탭하여 공유, 길게 눌러 삭제</string>
+    <string name="chart_waiting">기록 대기 중…</string>
+
+    <!-- DeviceItem -->
+    <string name="desc_bluetooth">블루투스</string>
+
+    <!-- HeartRateService -->
+    <string name="notif_service_started">서비스 시작됨</string>
+    <string name="notif_record_failed">기록 실패</string>
+    <string name="notif_recording">심박수 기록 중…</string>
+    <string name="notif_record_stopped">기록 중지됨</string>
+    <string name="notif_action_stop">서비스 중지</string>
+    <string name="notif_channel_name">심박수 기록 서비스</string>
+    <string name="notif_channel_desc">백그라운드 심박수 데이터 기록</string>
+
+    <!-- CsvRecorder -->
+    <string name="error_file_create_failed">파일 생성 실패</string>
+
+    <!-- HistoryScreen -->
+    <string name="history_empty">기록 없음</string>
+    <string name="history_file_size">%d KB</string>
+    <string name="history_delete_title">파일 삭제?</string>
+    <string name="history_delete_message">이 기록을 삭제하시겠습니까?</string>
+
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">두 손가락으로 X축 확대/축소, 한 손가락으로 스크롤</string>
+    <string name="chart_reset_guide">3초 길게 눌러 확대/축소 초기화</string>
+    <string name="chart_legend_guide">범례를 탭하여 곡선 표시/숨기기</string>
+</resources>

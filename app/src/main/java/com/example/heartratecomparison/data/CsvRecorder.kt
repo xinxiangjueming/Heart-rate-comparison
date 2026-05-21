@@ -115,7 +115,7 @@ class CsvRecorder(
         builder.append(time)
         deviceOrder.forEach { addr ->
             builder.append(", ")
-            builder.append(hrMap[addr]?.toString() ?: "null")
+            builder.append(hrMap[addr]?.toString() ?: "")
         }
         builder.append("\n")
         writer?.write(builder.toString())

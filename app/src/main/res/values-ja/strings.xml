@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">心拍数比較</string>
+
+    <!-- MainScreen -->
+    <string name="dialog_exit_title">記録を終了しますか？</string>
+    <string name="dialog_exit_message">記録中です。記録を中止して終了しますか？</string>
+    <string name="btn_finish">終了</string>
+    <string name="btn_cancel">キャンセル</string>
+    <string name="btn_back">戻る</string>
+    <string name="btn_confirm">確認</string>
+
+    <!-- LeftPanel -->
+    <string name="btn_scanning">検索中…</string>
+    <string name="btn_recording">記録中…</string>
+    <string name="btn_search">検索</string>
+
+    <!-- MultiHeartRateChart -->
+    <string name="chart_no_device">デバイス未接続</string>
+    <string name="chart_guide_search">「検索」をタップして心拍数デバイスをスキャン</string>
+    <string name="chart_guide_connect">デバイスをタップして接続、長押しで切断</string>
+    <string name="chart_guide_record">「検索」を1.5秒長押しで記録開始</string>
+    <string name="chart_guide_stop">記録中「検索」を3秒長押しで停止</string>
+    <string name="chart_guide_history">デバイスなし時に「検索」を1.5秒長押しで履歴表示</string>
+    <string name="chart_guide_share">記録ファイルをダブルタップで共有、長押しで削除</string>
+    <string name="chart_waiting">記録待機中…</string>
+
+    <!-- DeviceItem -->
+    <string name="desc_bluetooth">Bluetooth</string>
+
+    <!-- HeartRateService -->
+    <string name="notif_service_started">サービス開始</string>
+    <string name="notif_record_failed">記録失敗</string>
+    <string name="notif_recording">心拍数記録中…</string>
+    <string name="notif_record_stopped">記録停止</string>
+    <string name="notif_action_stop">サービス停止</string>
+    <string name="notif_channel_name">心拍数記録サービス</string>
+    <string name="notif_channel_desc">バックグラウンド心拍数データ記録</string>
+
+    <!-- CsvRecorder -->
+    <string name="error_file_create_failed">ファイル作成失敗</string>
+
+    <!-- HistoryScreen -->
+    <string name="history_empty">履歴なし</string>
+    <string name="history_file_size">%d KB</string>
+    <string name="history_delete_title">ファイル削除？</string>
+    <string name="history_delete_message">この記録を削除しますか？</string>
+
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">二本指でX軸を拡大・縮小、一本指でスクロール</string>
+    <string name="chart_reset_guide">3秒長押しで拡大・縮小をリセット</string>
+    <string name="chart_legend_guide">凡例をタップして曲線の表示・非表示</string>
+</resources>
