@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -112,24 +113,30 @@ fun MainScreen() {
             title = { Text(stringResource(R.string.dialog_exit_title)) },
             text = { Text(stringResource(R.string.dialog_exit_message)) },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showExitDialog = false
-                        sendServiceCommand("STOP_RECORDING")
-                        sendServiceCommand("STOP_SERVICE")
-                        activity?.finish()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) { Text(stringResource(R.string.btn_finish)) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = { showExitDialog = false }) {
+                        Text(stringResource(R.string.btn_cancel))
+                    }
+                    Spacer(modifier = Modifier.width(24.dp))
+                    Button(
+                        onClick = {
+                            showExitDialog = false
+                            sendServiceCommand("STOP_RECORDING")
+                            sendServiceCommand("STOP_SERVICE")
+                            activity?.finish()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) { Text(stringResource(R.string.btn_finish)) }
+                }
             },
-            dismissButton = {
-                Button(
-                    onClick = { showExitDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.outline)
-                ) { Text(stringResource(R.string.btn_cancel)) }
-            },
+            dismissButton = {},
             shape = RoundedCornerShape(28.dp),
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp
         )
     }
 

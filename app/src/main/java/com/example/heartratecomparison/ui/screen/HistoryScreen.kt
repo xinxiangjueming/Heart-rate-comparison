@@ -1,6 +1,7 @@
 package com.example.heartratecomparison.ui.screen
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -57,6 +58,11 @@ fun HistoryScreen(onBack: () -> Unit) {
     val dateFormat = remember { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US) }
     val displayFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
 
+    // 返回手势拦截
+    if (selectedFile == null) {
+        BackHandler { onBack() }
+    }
+
     // 删除确认弹窗
     if (fileToDelete != null) {
         AlertDialog(
@@ -64,27 +70,30 @@ fun HistoryScreen(onBack: () -> Unit) {
             title = { Text(stringResource(R.string.history_delete_title)) },
             text = { Text(stringResource(R.string.history_delete_message)) },
             confirmButton = {
-                Button(
-                    onClick = {
-                        fileToDelete?.delete()
-                        fileList = fileList.filter { it != fileToDelete }
-                        fileToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(stringResource(R.string.btn_confirm))
-                }
-            },
-            dismissButton = {
-                Button(
-                    onClick = { fileToDelete = null },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.outline)
-                ) {
-                    Text(stringResource(R.string.btn_cancel))
+                    TextButton(onClick = { fileToDelete = null }) {
+                        Text(stringResource(R.string.btn_cancel))
+                    }
+                    Spacer(modifier = Modifier.width(24.dp))
+                    Button(
+                        onClick = {
+                            fileToDelete?.delete()
+                            fileList = fileList.filter { it != fileToDelete }
+                            fileToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text(stringResource(R.string.btn_confirm))
+                    }
                 }
             },
             shape = RoundedCornerShape(28.dp),
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp
         )
     }
 
