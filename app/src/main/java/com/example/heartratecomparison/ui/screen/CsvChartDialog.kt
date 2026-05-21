@@ -29,6 +29,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -45,6 +46,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
     val context = LocalContext.current
     val activity = context as? Activity
     val isDark = isSystemInDarkTheme()
+    val density = LocalDensity.current
 
     // 进入时锁定横屏、隐藏状态栏，退出时恢复
     DisposableEffect(Unit) {
@@ -142,10 +144,15 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(28.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surface)
-                        .padding(15.dp)
+                        .padding(start = 15.dp, top = 25.dp, end = 15.dp, bottom = 15.dp)
                 ) {
+                    // 缩放状态（图表和时间标签共享）
+                    val maxDataPoints = parsed.columns.maxOfOrNull { it.values.size } ?: 0
+                    var zoomLevel by remember { mutableFloatStateOf(1f) }
+                    var panOffset by remember { mutableFloatStateOf(0f) }
+
                     // 图表区域（支持手势缩放和滑动）
                     Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         // Y 轴标签（固定显示完整数据范围）
@@ -156,7 +163,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                         ) {
                             val textPaint = android.graphics.Paint().apply {
                                 color = labelColor
-                                textSize = 28f
+                                textSize = with(density) { 10.sp.toPx() }
                                 textAlign = android.graphics.Paint.Align.RIGHT
                             }
                             val h = size.height
@@ -172,9 +179,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                         }
 
                         // 曲线区域（支持缩放、滑动、长按重置）
-                        val maxDataPoints = parsed.columns.maxOfOrNull { it.values.size } ?: 0
-                        var zoomLevel by remember { mutableFloatStateOf(1f) }
-                        var panOffset by remember { mutableFloatStateOf(0f) }
+
 
                         Canvas(
                             modifier = Modifier
@@ -351,7 +356,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                     ) {
                         // 与 Y 轴等宽的占位
                         Spacer(modifier = Modifier.width(20.dp))
-                        // 时间标签
+                        // 时间标签（跟随缩放和偏移）
                         Row(modifier = Modifier.weight(1f)) {
                             fun formatTime(seconds: Float): String {
                                 val totalSecs = seconds.toInt()
@@ -360,9 +365,16 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                                 val s = totalSecs % 60
                                 return String.format("%02d:%02d:%02d", h, m, s)
                             }
-                            val tStart = parsed.times.firstOrNull() ?: 0f
-                            val tEnd = parsed.times.lastOrNull() ?: 0f
-                            val tMid = (tStart + tEnd) / 2f
+                            // 计算可见范围的时间
+                            val visibleCount = (maxDataPoints / zoomLevel).coerceAtLeast(2f)
+                            val visStart = panOffset
+                            val visEnd = panOffset + visibleCount
+                            val tStartIdx = visStart.toInt().coerceIn(0, (parsed.times.size - 1).coerceAtLeast(0))
+                            val tEndIdx = visEnd.toInt().coerceIn(0, (parsed.times.size - 1).coerceAtLeast(0))
+                            val tMidIdx = ((visStart + visEnd) / 2f).toInt().coerceIn(0, (parsed.times.size - 1).coerceAtLeast(0))
+                            val tStart = parsed.times.getOrNull(tStartIdx) ?: parsed.times.firstOrNull() ?: 0f
+                            val tEnd = parsed.times.getOrNull(tEndIdx) ?: parsed.times.lastOrNull() ?: 0f
+                            val tMid = parsed.times.getOrNull(tMidIdx) ?: (tStart + tEnd) / 2f
 
                             Text(
                                 text = formatTime(tStart),

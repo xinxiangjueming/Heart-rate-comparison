@@ -96,6 +96,7 @@ fun MultiHeartRateChart(
     }
     val yMin = 50f
     val density = LocalDensity.current
+    val fontScale = density.fontScale
     val isDark = isSystemInDarkTheme()
     val labelColor = if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
     val axisColor = if (isDark) Color(0xFF888888) else Color.DarkGray
@@ -117,7 +118,8 @@ fun MultiHeartRateChart(
             ) {
                 val textPaint = android.graphics.Paint().apply {
                     color = labelColor
-                    textSize = 26f + with(density) { 5.dp.toPx() }
+                    // 使用 sp 单位，跟随系统字体缩放
+                    textSize = with(density) { 10.sp.toPx() }
                     textAlign = android.graphics.Paint.Align.RIGHT
                 }
                 // 与图表边框保持 3dp 间距

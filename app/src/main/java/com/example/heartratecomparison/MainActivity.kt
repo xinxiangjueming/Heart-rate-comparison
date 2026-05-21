@@ -57,10 +57,18 @@ class MainActivity : ComponentActivity() {
             startService(Intent(this, HeartRateService::class.java))
         }
 
-        // 沉浸式适配（HyperOS 全屏沉浸模式 + 自由窗口兼容）
+        // 沉浸式适配（HyperOS 全屏沉浸模式 + 自由窗口兼容 + Flip 外屏兼容）
         enableEdgeToEdge()
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        // 检测是否为 Flip 设备，Flip 外屏不支持透明导航栏
+        val isFlip = try {
+            val c = Class.forName("miui.util.MiuiMultiDisplayTypeInfo")
+            val m = c.getMethod("isFlipDevice")
+            m.invoke(c) as? Boolean ?: false
+        } catch (_: Exception) { false }
+        if (isFlip) {
+            window.navigationBarColor = if (isDark) 0xFF1C1B1F.toInt() else 0xFFFFFBFE.toInt()
+        }
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
         insetsController.isAppearanceLightStatusBars = !isDark
         insetsController.isAppearanceLightNavigationBars = !isDark

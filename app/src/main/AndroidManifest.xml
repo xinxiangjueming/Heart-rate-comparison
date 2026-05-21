@@ -22,11 +22,29 @@
         android:fitsSystemWindows="true"
         tools:targetApi="34">
 
+        <meta-data
+            android:name="miui.supportAppContinuity"
+            android:value="true" />
+
+        <!-- 大屏横屏适配标记 -->
+        <meta-data
+            android:name="LandscapeForPad"
+            android:value="true" />
+
+        <!-- 12L 平行窗口适配标记 -->
+        <meta-data
+            android:name="embedded"
+            android:value="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="unspecified"
+            android:resizeableActivity="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode">
+            <meta-data
+                android:name="miui.supportFlipFullScreen"
+                android:value="1" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
