@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
@@ -28,8 +29,8 @@ class BluetoothScanner(
     }
 
     private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    val adapter: BluetoothAdapter = bluetoothManager.adapter
-    val scanner: BluetoothLeScanner? = adapter.bluetoothLeScanner
+    val adapter: BluetoothAdapter? = bluetoothManager.adapter
+    val scanner: BluetoothLeScanner? = adapter?.bluetoothLeScanner
 
     private var scanCallback: ScanCallback? = null
     private var stopRunnable: Runnable? = null
@@ -42,8 +43,9 @@ class BluetoothScanner(
     ) {
         // 权限检查
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-                Log.e(TAG, "缺少 BLUETOOTH_SCAN 权限")
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "缺少 BLUETOOTH_SCAN 或 BLUETOOTH_CONNECT 权限")
                 onScanFailed(-1)
                 return
             }
@@ -84,7 +86,10 @@ class BluetoothScanner(
             .build()
 
         try {
-            scanner.startScan(null, settings, callback)
+            val filter = ScanFilter.Builder()
+                .setServiceUuid(HEART_RATE_SERVICE_UUID)
+                .build()
+            scanner.startScan(listOf(filter), settings, callback)
             Log.d(TAG, "开始 BLE 扫描（过滤心率设备）")
         } catch (e: SecurityException) {
             Log.e(TAG, "没有扫描权限", e)

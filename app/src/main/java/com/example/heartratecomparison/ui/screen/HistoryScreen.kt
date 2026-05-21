@@ -52,6 +52,7 @@ fun HistoryScreen(onBack: () -> Unit) {
     }
 
     var fileToDelete by remember { mutableStateOf<File?>(null) }
+    var selectedFile by remember { mutableStateOf<File?>(null) }
 
     val dateFormat = remember { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US) }
     val displayFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
@@ -85,6 +86,12 @@ fun HistoryScreen(onBack: () -> Unit) {
             shape = RoundedCornerShape(28.dp),
             containerColor = MaterialTheme.colorScheme.surface
         )
+    }
+
+    // 全屏横屏图表
+    if (selectedFile != null) {
+        CsvChartScreen(file = selectedFile!!, onBack = { selectedFile = null })
+        return
     }
 
     Box(
@@ -128,7 +135,7 @@ fun HistoryScreen(onBack: () -> Unit) {
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(16.dp))
                                 .combinedClickable(
-                                    onClick = {},
+                                    onClick = { selectedFile = file },
                                     onDoubleClick = {
                                         val uri = FileProvider.getUriForFile(
                                             context,

@@ -19,15 +19,17 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 class HeartRateService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private lateinit var connector: BluetoothConnector
     private lateinit var csvRecorder: CsvRecorder
-    private val deviceStates = mutableMapOf<String, DeviceState>()
-    private val connectionOrder = mutableListOf<String>()
-    private val deviceColors = mutableMapOf<String, Int>()
+    private val deviceStates = ConcurrentHashMap<String, DeviceState>()
+    private val connectionOrder = CopyOnWriteArrayList<String>()
+    private val deviceColors = ConcurrentHashMap<String, Int>()
     private var isRecording = false
     private var isScanning = false
     private var scanner: BluetoothScanner? = null
@@ -143,7 +145,7 @@ class HeartRateService : Service() {
                         deviceColors[addr] = connectionOrder.size
                         connectionOrder.add(addr)
                     }
-                    Log.d(TAG, "新设备加入: ${newDevice.device.name} ($addr)")
+                    Log.d(TAG, "新设备加入: ${newDevice.device.name ?: addr} ($addr)")
                     emitState()
                 }
             },
@@ -171,8 +173,12 @@ class HeartRateService : Service() {
     private fun startRecording() {
         if (isRecording) return
         deviceStates.values.forEach { it.heartRateHistory.clear() }
-        val connectedAddresses = deviceStates.filter { it.value.isConnected }.keys.toList()
-        csvRecorder.start(connectedAddresses) { error ->
+        val connectedDevices = deviceStates.filter { it.value.isConnected }
+        val connectedAddresses = connectedDevices.keys.toList()
+        val addressToName = connectedDevices.mapValues { (_, ds) ->
+            ds.device.name ?: ds.device.address
+        }
+        csvRecorder.start(connectedAddresses, addressToName) { error ->
             Log.e(TAG, "CSV error: $error")
             isRecording = false
             updateNotification(getString(R.string.notif_record_failed))
@@ -185,11 +191,13 @@ class HeartRateService : Service() {
 
     private fun stopRecording() {
         if (!isRecording) return
-        runBlocking { csvRecorder.stop() }
-        deviceStates.values.forEach { it.heartRateHistory.clear() }
-        isRecording = false
-        updateNotification(getString(R.string.notif_record_stopped))
-        emitState()
+        serviceScope.launch {
+            csvRecorder.stop()
+            deviceStates.values.forEach { it.heartRateHistory.clear() }
+            isRecording = false
+            updateNotification(getString(R.string.notif_record_stopped))
+            emitState()
+        }
     }
 
     private fun emitState() {
@@ -263,7 +271,10 @@ class HeartRateService : Service() {
     override fun onDestroy() {
         Log.d(TAG, "服务 onDestroy")
         scanTimeoutJob?.cancel()
-        scanner?.stopScan()
+        scanner?.let {
+            it.stopScan()
+            scanner = null
+        }
         if (isRecording) {
             runBlocking { csvRecorder.stop() }
             isRecording = false

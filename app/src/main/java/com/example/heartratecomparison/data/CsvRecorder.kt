@@ -17,13 +17,14 @@ class CsvRecorder(
     private val hrChannel = Channel<Pair<String, Int>>(capacity = 1024)
     private var writer: BufferedWriter? = null
     private var deviceOrder: List<String> = emptyList()
+    private var deviceNames: Map<String, String> = emptyMap()
     private var writeJob: Job? = null
 
     fun onHeartRate(deviceAddress: String, heartRate: Int) {
         hrChannel.trySend(deviceAddress to heartRate)
     }
 
-    fun start(connectedDeviceAddresses: List<String>, onError: (String) -> Unit) {
+    fun start(connectedDeviceAddresses: List<String>, addressToName: Map<String, String> = emptyMap(), onError: (String) -> Unit) {
         try {
             val dir = File(context.getExternalFilesDir(null), "Comparison")
             if (!dir.exists()) dir.mkdirs()
@@ -32,11 +33,12 @@ class CsvRecorder(
             writer = file.bufferedWriter()
 
             deviceOrder = connectedDeviceAddresses.sorted()
+            deviceNames = addressToName
 
             val headers = mutableListOf("time")
             deviceOrder.forEach { addr ->
-                val safeName = getSafeDeviceName(addr)
-                headers.add("$safeName(hr)")
+                val displayName = deviceNames[addr] ?: getSafeDeviceName(addr)
+                headers.add("$displayName(hr)")
             }
             writer?.write(headers.joinToString(", ") + "\n")
             writer?.flush()
@@ -59,7 +61,7 @@ class CsvRecorder(
 
     private suspend fun consumeAndWrite() {
         val builder = StringBuilder()
-        val latestHr = mutableMapOf<String, Int?>()      // 改用普通 HashMap，允许 null
+        val latestHr = mutableMapOf<String, Int?>()
         deviceOrder.forEach { latestHr[it] = null }
 
         var lastSecond = System.currentTimeMillis() / 1000
@@ -71,7 +73,7 @@ class CsvRecorder(
 
             if (currentSecond != lastSecond) {
                 writeRow(builder, latestHr, lastSecond)
-                deviceOrder.forEach { latestHr[it] = null }   // 现在允许 null
+                deviceOrder.forEach { latestHr[it] = null }
                 lastSecond = currentSecond
 
                 if (now - lastFlush >= 5000) {

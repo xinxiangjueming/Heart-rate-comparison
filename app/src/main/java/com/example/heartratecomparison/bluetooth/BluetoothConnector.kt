@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.content.Context
 import android.os.ParcelUuid
+import android.util.Log
 import com.example.heartratecomparison.model.DeviceState
 import kotlinx.coroutines.*
 import java.util.UUID
@@ -19,6 +20,10 @@ class BluetoothConnector(
     private val onDeviceDisconnected: (String) -> Unit,
     private val onHeartRateReceived: (String, Int) -> Unit
 ) {
+    companion object {
+        private const val TAG = "BluetoothConnector"
+    }
+
     private val gattMap = mutableMapOf<String, BluetoothGatt>()
 
     @SuppressLint("MissingPermission")
@@ -28,7 +33,16 @@ class BluetoothConnector(
         val gattCallback = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    gatt.discoverServices()
+                    if (status == BluetoothGatt.GATT_SUCCESS) {
+                        gatt.discoverServices()
+                    } else {
+                        Log.e(TAG, "GATT 连接失败, status=$status")
+                        gattMap.remove(device.address)
+                        gatt.close()
+                        scope.launch(Dispatchers.Main) {
+                            onDeviceDisconnected(device.address)
+                        }
+                    }
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     gattMap.remove(device.address)
                     scope.launch(Dispatchers.Main) {
@@ -57,6 +71,13 @@ class BluetoothConnector(
                             onDeviceConnected(device.address)
                         }
                     }
+                } else {
+                    Log.e(TAG, "服务发现失败, status=$status")
+                    gattMap.remove(device.address)
+                    gatt.close()
+                    scope.launch(Dispatchers.Main) {
+                        onDeviceDisconnected(device.address)
+                    }
                 }
             }
 
@@ -66,6 +87,17 @@ class BluetoothConnector(
                     scope.launch(Dispatchers.Default) {
                         @Suppress("DEPRECATION")
                         val hr = parseHeartRate(characteristic.value)
+                        withContext(Dispatchers.Main) {
+                            onHeartRateReceived(device.address, hr)
+                        }
+                    }
+                }
+            }
+
+            override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+                if (characteristic.uuid == HEART_RATE_MEASUREMENT_UUID) {
+                    scope.launch(Dispatchers.Default) {
+                        val hr = parseHeartRate(value)
                         withContext(Dispatchers.Main) {
                             onHeartRateReceived(device.address, hr)
                         }

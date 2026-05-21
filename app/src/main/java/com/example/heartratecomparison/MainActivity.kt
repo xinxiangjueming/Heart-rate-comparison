@@ -56,11 +56,6 @@ class MainActivity : ComponentActivity() {
         // 沉浸式适配
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        window.statusBarColor = if (isDark) {
-            android.graphics.Color.rgb(0x12, 0x12, 0x12)
-        } else {
-            android.graphics.Color.rgb(0xE0, 0xE0, 0xE0)
-        }
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
         insetsController.isAppearanceLightStatusBars = !isDark

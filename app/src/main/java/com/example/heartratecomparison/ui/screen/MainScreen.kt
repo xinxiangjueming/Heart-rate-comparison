@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.os.PowerManager
 import android.os.VibrationEffect
@@ -23,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -42,7 +44,6 @@ fun MainScreen() {
     val activity = context as? Activity
     val density = LocalDensity.current
 
-    // 震动器
     val vibrator = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -58,7 +59,6 @@ fun MainScreen() {
     )
 
     val uiState by HeartRateService.globalUiState.collectAsState()
-
     val deviceStates = uiState.devices
     val connectionOrder = uiState.connectionOrder
     val deviceColors = remember(uiState.deviceColors) {
@@ -104,14 +104,8 @@ fun MainScreen() {
         }
     }
 
-    LaunchedEffect(Unit) {
-        // 电池优化改为按需申请，见 onStartRecord
-    }
-
-    BackHandler(enabled = isRecording) {
-        showExitDialog = true
-    }
-
+    // 退出确认弹窗
+    BackHandler(enabled = isRecording) { showExitDialog = true }
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
@@ -126,32 +120,74 @@ fun MainScreen() {
                         activity?.finish()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Text(stringResource(R.string.btn_finish))
-                }
+                ) { Text(stringResource(R.string.btn_finish)) }
             },
             dismissButton = {
                 Button(
                     onClick = { showExitDialog = false },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.outline)
-                ) {
-                    Text(stringResource(R.string.btn_cancel))
-                }
+                ) { Text(stringResource(R.string.btn_cancel)) }
             },
             shape = RoundedCornerShape(28.dp),
             containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
-    BackHandler(enabled = showHistory) {
-        showHistory = false
-    }
-
+    // 历史页面
+    BackHandler(enabled = showHistory) { showHistory = false }
     if (showHistory) {
         HistoryScreen(onBack = { showHistory = false })
         return
     }
 
+    // 共享的回调
+    val onScanClick: () -> Unit = {
+        val needRequest = permissions.any {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (needRequest) permissionLauncher.launch(permissions)
+        else sendServiceCommand("TOGGLE_SCAN")
+    }
+    val onStartRecord: () -> Unit = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
+                context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = android.net.Uri.parse("package:${context.packageName}")
+                })
+            }
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION") vibrator.vibrate(50)
+            }
+        } catch (_: SecurityException) {}
+        sendServiceCommand("START_RECORDING")
+    }
+    val onStopRecord: () -> Unit = {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(3000, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION") vibrator.vibrate(3000)
+            }
+        } catch (_: SecurityException) {}
+        sendServiceCommand("STOP_RECORDING")
+    }
+    val onDeviceClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = { state ->
+        sendServiceCommand("CONNECT_DEVICE", "device_address" to state.address)
+    }
+    val onDeviceLongClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = { state ->
+        if (state.isConnected) {
+            sendServiceCommand("DISCONNECT_DEVICE", "device_address" to state.address)
+        }
+    }
+
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    // 主内容
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -163,88 +199,69 @@ fun MainScreen() {
                 end = 7.dp
             )
     ) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            LeftPanel(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                isScanning = isScanning,
-                isRecording = isRecording,
-                hasConnectedDevices = hasConnectedDevices,
-                deviceStates = deviceStates.values.toList(),
-                deviceColors = deviceColors,
-                onScanClick = {
-                    val needRequest = permissions.any {
-                        ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
-                    }
-                    if (needRequest) {
-                        permissionLauncher.launch(permissions)
-                    } else {
-                        sendServiceCommand("TOGGLE_SCAN")
-                    }
-                },
-                onStartRecord = {
-                    // 电量无限制：按需申请
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-                        if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
-                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                data = android.net.Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
-                        }
-                    }
-                    // 短震 50ms
-                    try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
-                        } else {
-                            @Suppress("DEPRECATION")
-                            vibrator.vibrate(50)
-                        }
-                    } catch (e: SecurityException) {
-                        Log.e(TAG, "缺少震动权限")
-                    }
-                    sendServiceCommand("START_RECORDING")
-                },
-                onStopRecord = {
-                    // 长震 3s
-                    try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            vibrator.vibrate(VibrationEffect.createOneShot(3000, VibrationEffect.DEFAULT_AMPLITUDE))
-                        } else {
-                            @Suppress("DEPRECATION")
-                            vibrator.vibrate(3000)
-                        }
-                    } catch (e: SecurityException) {
-                        Log.e(TAG, "缺少震动权限")
-                    }
-                    sendServiceCommand("STOP_RECORDING")
-                },
-                onShowHistory = { showHistory = true },
-                onDeviceClick = { state ->
-                    sendServiceCommand("CONNECT_DEVICE", "device_address" to state.address)
-                },
-                onDeviceLongClick = { state ->
-                    if (state.isConnected) {
-                        sendServiceCommand("DISCONNECT_DEVICE", "device_address" to state.address)
-                    }
-                }
-            )
-
-            Box(
-                modifier = Modifier
-                    .weight(3f)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(15.dp)
-            ) {
-                MultiHeartRateChart(
-                    deviceStates = deviceStates,
-                    connectionOrder = connectionOrder,
-                    deviceColors = deviceColors
+        if (isLandscape) {
+            // 横屏：左（搜索+设备）右（图表）1:3
+            Row(modifier = Modifier.fillMaxSize()) {
+                LeftPanel(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    isScanning = isScanning,
+                    isRecording = isRecording,
+                    hasConnectedDevices = hasConnectedDevices,
+                    deviceStates = deviceStates.values.toList(),
+                    deviceColors = deviceColors,
+                    onScanClick = onScanClick,
+                    onStartRecord = onStartRecord,
+                    onStopRecord = onStopRecord,
+                    onShowHistory = { showHistory = true },
+                    onDeviceClick = onDeviceClick,
+                    onDeviceLongClick = onDeviceLongClick
                 )
+                Box(
+                    modifier = Modifier
+                        .weight(3f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(15.dp)
+                ) {
+                    MultiHeartRateChart(
+                        deviceStates = deviceStates,
+                        connectionOrder = connectionOrder,
+                        deviceColors = deviceColors
+                    )
+                }
+            }
+        } else {
+            // 竖屏：上（搜索+设备）下（图表）1:1
+            Column(modifier = Modifier.fillMaxSize()) {
+                LeftPanel(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    isScanning = isScanning,
+                    isRecording = isRecording,
+                    hasConnectedDevices = hasConnectedDevices,
+                    deviceStates = deviceStates.values.toList(),
+                    deviceColors = deviceColors,
+                    onScanClick = onScanClick,
+                    onStartRecord = onStartRecord,
+                    onStopRecord = onStopRecord,
+                    onShowHistory = { showHistory = true },
+                    onDeviceClick = onDeviceClick,
+                    onDeviceLongClick = onDeviceLongClick
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(15.dp)
+                ) {
+                    MultiHeartRateChart(
+                        deviceStates = deviceStates,
+                        connectionOrder = connectionOrder,
+                        deviceColors = deviceColors
+                    )
+                }
             }
         }
     }
