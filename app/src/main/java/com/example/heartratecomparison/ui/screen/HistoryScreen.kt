@@ -224,9 +224,11 @@ private fun FileListContent(
                 }
                 val sizeKb = file.length() / 1024
 
+                val itemShape = MaterialTheme.shapes.small
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clip(itemShape)
                         .combinedClickable(
                             onClick = { onFileClick(file) },
                             onDoubleClick = {
@@ -244,9 +246,8 @@ private fun FileListContent(
                             },
                             onLongClick = { onFileLongClick(file) }
                         )
-                        .clip(MaterialTheme.shapes.small)
-                        .border(1.dp, LocalDeviceCardBorder.current, MaterialTheme.shapes.small),
-                    shape = MaterialTheme.shapes.small,
+                        .border(1.dp, LocalDeviceCardBorder.current, itemShape),
+                    shape = itemShape,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
