@@ -4,6 +4,7 @@
 
 ## 功能
 
+- **开屏动画**：粒子聚合心形 + ECG 心电图描线动画，科技感启动体验
 - **多设备连接**：同时连接多个蓝牙心率传感器
 - **实时图表**：实时显示各设备心率曲线，颜色区分
 - **数据记录**：一键开始/停止记录，数据保存为 CSV 格式
@@ -39,7 +40,7 @@
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    UI Layer (Compose)                │
-│  MainScreen ── HistoryScreen ── CsvChartScreen      │
+│  SplashScreen ── MainScreen ── HistoryScreen        │
 │  LeftPanel / DeviceItem / MultiHeartRateChart       │
 │       │                                             │
 │       │ collectAsState()                             │
@@ -76,6 +77,7 @@
 
 | 模块 | 文件 | 职责 |
 |------|------|------|
+| **开屏动画** | `SplashScreen.kt` | 粒子聚合心形 + ECG 心电图描线启动动画 |
 | **主页面** | `MainScreen.kt` | 横竖屏自适应布局，协调各子组件 |
 | **左侧面板** | `LeftPanel.kt` | 搜索/记录按钮 + 设备列表 |
 | **设备卡片** | `DeviceItem.kt` | 单个蓝牙设备的显示与交互 |
@@ -83,6 +85,22 @@
 | **历史页面** | `HistoryScreen.kt` | CSV 文件列表，支持拖拽分享 |
 | **CSV 图表** | `CsvChartDialog.kt` | 历史数据回放，支持缩放/滑动手势 |
 | **主题** | `Theme.kt` / `Color.kt` / `Type.kt` | Material 3 主题、颜色、字体，动态屏幕圆角适配 |
+
+### 开屏动画说明
+
+`SplashScreen.kt` 实现了一个粒子聚合 + 心电图描线的启动动画，纯 Compose Canvas 绘制，无额外依赖。
+
+**动画流程：**
+1. 160 个光点粒子从屏幕四边飞入，聚合成心形（参数方程 `x=16sin³t, y=13cost-5cos2t-2cos3t-cos4t`）
+2. 聚合过程中脉冲光环从心形中心向外扩散
+3. 心形稳定后，蓝色 ECG 心电图线从左到右逐笔描出（PQRST 波形）
+4. 背景先淡出露出主界面，内容再渐隐完成过渡
+
+**技术要点：**
+- `Animatable` 单一进度值驱动全部动画元素
+- 每粒子随机延迟（0~25%）实现自然错峰
+- `smoothStep` hermite 插值实现丝滑过渡
+- 横屏自适应：振幅基于短边计算，避免压扁
 
 ### 数据流
 
@@ -122,6 +140,7 @@ app/src/main/java/com/example/heartratecomparison/
 │   │   ├── LeftPanel.kt        # 左侧控制面板
 │   │   └── DeviceItem.kt       # 设备列表项
 │   ├── screen/
+│   │   ├── SplashScreen.kt     # 开屏动画（粒子聚合 + ECG 描线）
 │   │   ├── MainScreen.kt       # 主页面
 │   │   ├── HistoryScreen.kt    # 历史记录页面
 │   │   └── CsvChartDialog.kt   # CSV 图表回放
@@ -159,6 +178,7 @@ An Android app for connecting multiple Bluetooth heart rate devices simultaneous
 
 ## Features
 
+- **Splash Animation**: Particle-aggregated heart shape + ECG waveform line drawing animation
 - **Multi-device Connection**: Connect multiple Bluetooth heart rate sensors at the same time
 - **Real-time Chart**: Live heart rate curve display with color-coded devices
 - **Data Recording**: One-tap start/stop recording, data saved in CSV format
@@ -194,7 +214,7 @@ An Android app for connecting multiple Bluetooth heart rate devices simultaneous
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    UI Layer (Compose)                │
-│  MainScreen ── HistoryScreen ── CsvChartScreen      │
+│  SplashScreen ── MainScreen ── HistoryScreen        │
 │  LeftPanel / DeviceItem / MultiHeartRateChart       │
 │       │                                             │
 │       │ collectAsState()                             │
@@ -231,6 +251,7 @@ An Android app for connecting multiple Bluetooth heart rate devices simultaneous
 
 | Module | File | Responsibility |
 |--------|------|----------------|
+| **Splash Screen** | `SplashScreen.kt` | Particle-aggregated heart + ECG line animation |
 | **Main Screen** | `MainScreen.kt` | Adaptive landscape/portrait layout |
 | **Left Panel** | `LeftPanel.kt` | Scan/record buttons + device list |
 | **Device Card** | `DeviceItem.kt` | Individual Bluetooth device display |
@@ -277,6 +298,7 @@ app/src/main/java/com/example/heartratecomparison/
 │   │   ├── LeftPanel.kt        # Left control panel
 │   │   └── DeviceItem.kt       # Device list item
 │   ├── screen/
+│   │   ├── SplashScreen.kt     # Splash animation (particles + ECG)
 │   │   ├── MainScreen.kt       # Main screen
 │   │   ├── HistoryScreen.kt    # History screen
 │   │   └── CsvChartDialog.kt   # CSV chart playback
