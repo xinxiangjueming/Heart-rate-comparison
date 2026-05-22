@@ -40,6 +40,7 @@ import com.example.heartratecomparison.bluetooth.HeartRateService
 import com.example.heartratecomparison.ui.chart.MultiHeartRateChart
 import com.example.heartratecomparison.ui.components.LeftPanel
 import com.example.heartratecomparison.ui.theme.ChartColors
+import com.example.heartratecomparison.ui.screen.SplashScreen
 
 private const val TAG = "MainScreen"
 
@@ -78,6 +79,7 @@ fun MainScreen() {
 
     var showExitDialog by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
+    var showSplash by remember { mutableStateOf(true) }
 
     fun sendServiceCommand(action: String, extra: Pair<String, String>? = null) {
         val intent = Intent(context, HeartRateService::class.java).apply {
@@ -99,6 +101,12 @@ fun MainScreen() {
         if (granted.values.all { it }) {
             sendServiceCommand("TOGGLE_SCAN")
         }
+    }
+
+    // 开屏动画
+    if (showSplash) {
+        SplashScreen(onFinished = { showSplash = false })
+        return
     }
 
     // 退出确认弹窗
