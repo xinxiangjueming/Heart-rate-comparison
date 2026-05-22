@@ -1,21 +1,15 @@
 package com.example.heartratecomparison.ui.screen
 
-import android.content.ClipData
 import android.content.Intent
 import android.content.res.Configuration
-import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +18,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -39,7 +32,6 @@ import java.util.*
 fun HistoryScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val view = LocalView.current
 
     val statusBarHeight = with(density) {
         WindowInsets.systemBars.getTop(this).toDp()
@@ -96,7 +88,13 @@ fun HistoryScreen(onBack: () -> Unit) {
                     textAlign = TextAlign.Center
                 )
             },
-            text = { Text(stringResource(R.string.history_delete_message)) },
+            text = {
+                Text(
+                    text = stringResource(R.string.history_delete_message),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            },
             confirmButton = {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -162,7 +160,6 @@ fun HistoryScreen(onBack: () -> Unit) {
                         onFileLongClick = { fileToDelete = it },
                         dateFormat = dateFormat,
                         displayFormat = displayFormat,
-                        view = view,
                         context = context
                     )
                 }
@@ -185,7 +182,6 @@ fun HistoryScreen(onBack: () -> Unit) {
                     onFileLongClick = { fileToDelete = it },
                     dateFormat = dateFormat,
                     displayFormat = displayFormat,
-                    view = view,
                     context = context
                 )
             }
@@ -201,7 +197,6 @@ private fun FileListContent(
     onFileLongClick: (File) -> Unit,
     dateFormat: SimpleDateFormat,
     displayFormat: SimpleDateFormat,
-    view: View,
     context: android.content.Context
 ) {
     if (fileList.isEmpty()) {
@@ -260,39 +255,6 @@ private fun FileListContent(
                             .padding(horizontal = 8.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.DragIndicator,
-                            contentDescription = "拖拽分享",
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                            modifier = Modifier
-                                .size(24.dp)
-                                .pointerInput(file) {
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = {
-                                            val uri = FileProvider.getUriForFile(
-                                                context,
-                                                "${context.packageName}.fileprovider",
-                                                file
-                                            )
-                                            val clipData = ClipData(
-                                                "CSV file",
-                                                arrayOf("text/csv"),
-                                                ClipData.Item(uri)
-                                            )
-                                            view.startDragAndDrop(
-                                                clipData,
-                                                View.DragShadowBuilder(view),
-                                                null,
-                                                View.DRAG_FLAG_GLOBAL or View.DRAG_FLAG_GLOBAL_URI_READ
-                                            )
-                                        },
-                                        onDrag = { _, _ -> },
-                                        onDragEnd = {},
-                                        onDragCancel = {}
-                                    )
-                                }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = timestamp,

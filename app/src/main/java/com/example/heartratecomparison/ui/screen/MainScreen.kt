@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -113,23 +114,41 @@ fun MainScreen() {
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
-            title = { Text(stringResource(R.string.dialog_exit_title)) },
-            text = { Text(stringResource(R.string.dialog_exit_message)) },
-            confirmButton = {
-                TextButton(onClick = { showExitDialog = false }) {
-                    Text(stringResource(R.string.btn_cancel))
-                }
+            title = {
+                Text(
+                    text = stringResource(R.string.dialog_exit_title),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
             },
-            dismissButton = {
-                Button(
-                    onClick = {
-                        showExitDialog = false
-                        sendServiceCommand("STOP_RECORDING")
-                        sendServiceCommand("STOP_SERVICE")
-                        activity?.finish()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) { Text(stringResource(R.string.btn_finish)) }
+            text = {
+                Text(
+                    text = stringResource(R.string.dialog_exit_message),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            },
+            confirmButton = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = { showExitDialog = false }) {
+                        Text(stringResource(R.string.btn_cancel))
+                    }
+                    Button(
+                        onClick = {
+                            showExitDialog = false
+                            sendServiceCommand("STOP_RECORDING")
+                            sendServiceCommand("STOP_SERVICE")
+                            activity?.finish()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text(stringResource(R.string.btn_finish))
+                    }
+                }
             },
             shape = MaterialTheme.shapes.large,
             containerColor = MaterialTheme.colorScheme.surface,
