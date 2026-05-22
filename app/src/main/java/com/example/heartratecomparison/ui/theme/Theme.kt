@@ -14,6 +14,10 @@ import androidx.compose.ui.unit.dp
 
 // 系统屏幕圆角，通过 CompositionLocal 传递
 val LocalCornerRadius = compositionLocalOf { 28.dp }
+val LocalDeviceCardBg = compositionLocalOf { Color.White }
+val LocalDeviceCardBorder = compositionLocalOf { Color.Black }
+val LocalChartAxis = compositionLocalOf { Color.DarkGray }
+val LocalChartGrid = compositionLocalOf { Color.LightGray }
 
 @SuppressLint("NewApi")
 private fun getScreenCornerRadius(context: Context): Dp {
@@ -85,8 +89,18 @@ fun HeartRateComparisonTheme(
         large = RoundedCornerShape(cornerRadius)
     )
     val colorScheme = if (darkTheme) DarkColors else LightColors
+    val deviceCardBg = if (darkTheme) DeviceBgDark else DeviceBgLight
+    val deviceCardBorder = if (darkTheme) DeviceBorderDark else DeviceBorderLight
+    val chartAxis = if (darkTheme) ChartAxisDark else ChartAxisLight
+    val chartGrid = if (darkTheme) ChartGridDark else ChartGridLight
 
-    CompositionLocalProvider(LocalCornerRadius provides cornerRadius) {
+    CompositionLocalProvider(
+        LocalCornerRadius provides cornerRadius,
+        LocalDeviceCardBg provides deviceCardBg,
+        LocalDeviceCardBorder provides deviceCardBorder,
+        LocalChartAxis provides chartAxis,
+        LocalChartGrid provides chartGrid
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             shapes = appShapes,

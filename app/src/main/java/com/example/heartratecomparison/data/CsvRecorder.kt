@@ -4,28 +4,45 @@ import android.content.Context
 import android.util.Log
 import com.example.heartratecomparison.R
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
 import java.io.BufferedWriter
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
 private const val TAG = "CsvRecorder"
-private const val FLUSH_INTERVAL_MS = 10_000L
 
 class CsvRecorder(
     private val scope: CoroutineScope,
     private val context: Context
 ) {
-    private val hrChannel = Channel<Pair<String, Int>>(capacity = 1024)
     private var writer: BufferedWriter? = null
     private var currentFile: File? = null
     private var deviceOrder: List<String> = emptyList()
     private var deviceNames: Map<String, String> = emptyMap()
-    private var writeJob: Job? = null
+
+    private val latestHr = mutableMapOf<String, Int?>()
+    private val builder = StringBuilder()
+    private var lastSecond: Long = 0L
 
     fun onHeartRate(deviceAddress: String, heartRate: Int) {
-        hrChannel.trySend(deviceAddress to heartRate)
+        synchronized(this) {
+            val w = writer ?: return
+            val now = System.currentTimeMillis()
+            val currentSecond = now / 1000
+
+            if (lastSecond == 0L) {
+                lastSecond = currentSecond
+            }
+
+            if (currentSecond != lastSecond) {
+                writeRow(w, lastSecond)
+                latestHr.clear()
+                deviceOrder.forEach { latestHr[it] = null }
+                lastSecond = currentSecond
+            }
+
+            latestHr[deviceAddress] = heartRate
+        }
     }
 
     fun start(connectedDeviceAddresses: List<String>, addressToName: Map<String, String> = emptyMap(), onError: (String) -> Unit) {
@@ -48,77 +65,46 @@ class CsvRecorder(
             writer?.write(headers.joinToString(", ") + "\n")
             writer?.flush()
 
-            writeJob = scope.launch(Dispatchers.IO) {
-                consumeAndWrite()
-            }
+            latestHr.clear()
+            deviceOrder.forEach { latestHr[it] = null }
+            lastSecond = 0L
         } catch (e: Exception) {
             Log.e(TAG, "启动录制失败", e)
             onError(e.message ?: context.getString(R.string.error_file_create_failed))
         }
     }
 
-    suspend fun stop() {
-        hrChannel.close()
-        writeJob?.join()
-        try {
-            writer?.flush()
-            writer?.close()
-        } catch (e: Exception) {
-            Log.e(TAG, "关闭文件失败", e)
-        }
-        writer = null
-        currentFile = null
-    }
-
-    private suspend fun consumeAndWrite() {
-        val builder = StringBuilder()
-        val latestHr = mutableMapOf<String, Int?>()
-        deviceOrder.forEach { latestHr[it] = null }
-
-        var lastSecond = System.currentTimeMillis() / 1000
-        var lastFlush = System.currentTimeMillis()
-
-        try {
-            for ((addr, hr) in hrChannel) {
-                val now = System.currentTimeMillis()
-                val currentSecond = now / 1000
-
-                if (currentSecond != lastSecond) {
-                    writeRow(builder, latestHr, lastSecond)
-                    deviceOrder.forEach { latestHr[it] = null }
-                    lastSecond = currentSecond
-
-                    if (now - lastFlush >= FLUSH_INTERVAL_MS) {
-                        writer?.flush()
-                        lastFlush = now
-                    }
-                }
-
-                latestHr[addr] = hr
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "写入异常", e)
-        } finally {
-            // channel 关闭后写入最后一行并 flush
+    fun stop() {
+        synchronized(this) {
             try {
-                writeRow(builder, latestHr, lastSecond)
-                writer?.flush()
+                val w = writer ?: return
+                // 写入最后一行
+                if (lastSecond > 0) {
+                    writeRow(w, lastSecond)
+                }
+                w.flush()
+                w.close()
             } catch (e: Exception) {
-                Log.e(TAG, "最终写入失败", e)
+                Log.e(TAG, "关闭文件失败", e)
             }
+            writer = null
+            currentFile = null
+            latestHr.clear()
+            lastSecond = 0L
         }
     }
 
-    private fun writeRow(builder: StringBuilder, hrMap: Map<String, Int?>, second: Long) {
+    private fun writeRow(w: BufferedWriter, second: Long) {
         builder.clear()
         val time = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(second * 1000))
         builder.append(time)
         deviceOrder.forEach { addr ->
             builder.append(", ")
-            builder.append(hrMap[addr]?.toString() ?: "")
+            builder.append(latestHr[addr]?.toString() ?: "")
         }
         builder.append("\n")
-        writer?.write(builder.toString())
+        w.write(builder.toString())
+        w.flush()
     }
 
     companion object {

@@ -5,11 +5,11 @@ import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.example.heartratecomparison.R
+import com.example.heartratecomparison.ui.theme.LocalDeviceCardBorder
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -226,7 +227,6 @@ private fun FileListContent(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
                         .combinedClickable(
                             onClick = { onFileClick(file) },
                             onDoubleClick = {
@@ -243,8 +243,10 @@ private fun FileListContent(
                                 context.startActivity(Intent.createChooser(shareIntent, null))
                             },
                             onLongClick = { onFileLongClick(file) }
-                        ),
-                    shape = RoundedCornerShape(16.dp),
+                        )
+                        .clip(MaterialTheme.shapes.small)
+                        .border(1.dp, LocalDeviceCardBorder.current, MaterialTheme.shapes.small),
+                    shape = MaterialTheme.shapes.small,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
@@ -252,7 +254,7 @@ private fun FileListContent(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                            .padding(horizontal = 19.dp, vertical = 17.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {

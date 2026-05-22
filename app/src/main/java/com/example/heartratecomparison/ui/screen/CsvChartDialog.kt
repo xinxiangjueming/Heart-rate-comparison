@@ -11,11 +11,11 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -35,11 +35,12 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.heartratecomparison.ui.theme.ChartColors
+import com.example.heartratecomparison.ui.theme.LocalChartAxis
+import com.example.heartratecomparison.ui.theme.LocalChartGrid
 import java.io.File
 
-private val chartColors = listOf(
-    Color.Red, Color(0xFF00BFFF), Color.Green, Color(0xFF800080), Color(0xFFFF9800)
-)
+private val chartColors = ChartColors
 
 @Composable
 fun CsvChartScreen(file: File, onBack: () -> Unit) {
@@ -73,8 +74,8 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
     val parsed = remember(file) { parseCsv(file) }
     var hiddenDevices by remember { mutableStateOf(setOf<Int>()) }
 
-    val axisColor = if (isDark) Color(0xFF888888) else Color.DarkGray
-    val gridColor = if (isDark) Color(0xFF444444) else Color.LightGray
+    val axisColor = LocalChartAxis.current
+    val gridColor = LocalChartGrid.current
     val labelColor = if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
 
     Box(
@@ -108,8 +109,10 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                     val visibleCount = (parsed.columns.size - hiddenDevices.size)
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .padding(top = 14.dp)
+                            .padding(top = 14.dp, start = 2.dp, end = 2.dp)
+                            .clip(MaterialTheme.shapes.small)
                             .clickable {
                                 if (isHidden) {
                                     hiddenDevices = hiddenDevices - index

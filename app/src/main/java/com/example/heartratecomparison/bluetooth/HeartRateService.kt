@@ -295,7 +295,7 @@ class HeartRateService : Service() {
             scanner = null
         }
         if (isRecording) {
-            runBlocking { csvRecorder.stop() }
+            csvRecorder.stop()
             isRecording = false
         }
         serviceScope.cancel()

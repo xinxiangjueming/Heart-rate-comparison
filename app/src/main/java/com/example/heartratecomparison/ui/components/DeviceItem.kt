@@ -1,6 +1,7 @@
 package com.example.heartratecomparison.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +18,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.heartratecomparison.R
 import com.example.heartratecomparison.model.UiDeviceState
+import com.example.heartratecomparison.ui.theme.LocalDeviceCardBg
+import com.example.heartratecomparison.ui.theme.LocalDeviceCardBorder
+import com.example.heartratecomparison.ui.theme.BluetoothConnected
+import com.example.heartratecomparison.ui.theme.BluetoothDisconnected
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -29,16 +34,20 @@ fun DeviceItem(
 ) {
     val textColor = if (isRecording && nameColor != null) nameColor else Color.Unspecified
     val shape = MaterialTheme.shapes.small
+    val cardBg = LocalDeviceCardBg.current
+    val borderColor = LocalDeviceCardBorder.current
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)                // 👈 关键：裁剪水波纹为圆角
+            .clip(shape)
+            .border(1.dp, borderColor, shape)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
-        shape = shape
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
         Row(
             modifier = Modifier
@@ -56,7 +65,7 @@ fun DeviceItem(
             Icon(
                 imageVector = Icons.Filled.Bluetooth,
                 contentDescription = stringResource(R.string.desc_bluetooth),
-                tint = if (deviceState.isConnected) Color(0xFF64B5F6) else Color(0xFFBDBDBD),
+                tint = if (deviceState.isConnected) BluetoothConnected else BluetoothDisconnected,
                 modifier = Modifier.weight(1f)
             )
         }

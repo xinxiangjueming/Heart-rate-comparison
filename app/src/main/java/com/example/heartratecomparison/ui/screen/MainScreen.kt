@@ -39,6 +39,7 @@ import com.example.heartratecomparison.R
 import com.example.heartratecomparison.bluetooth.HeartRateService
 import com.example.heartratecomparison.ui.chart.MultiHeartRateChart
 import com.example.heartratecomparison.ui.components.LeftPanel
+import com.example.heartratecomparison.ui.theme.ChartColors
 
 private const val TAG = "MainScreen"
 
@@ -59,9 +60,7 @@ fun MainScreen() {
         }
     }
 
-    val colorPool = listOf(
-        Color.Red, Color(0xFF00BFFF), Color.Green, Color(0xFF800080), Color(0xFFFF9800)
-    )
+    val colorPool = ChartColors
 
     val uiState by HeartRateService.globalUiState.collectAsState()
     val deviceStates = uiState.devices
@@ -79,13 +78,6 @@ fun MainScreen() {
 
     var showExitDialog by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
-
-    val statusBarHeight = with(density) {
-        WindowInsets.systemBars.getTop(this).toDp()
-    }
-    val navigationBarHeight = with(density) {
-        WindowInsets.systemBars.getBottom(this).toDp()
-    }
 
     fun sendServiceCommand(action: String, extra: Pair<String, String>? = null) {
         val intent = Intent(context, HeartRateService::class.java).apply {
@@ -241,12 +233,8 @@ fun MainScreen() {
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
-                    .padding(
-                        top = if (isLandscape) 7.dp else statusBarHeight + 7.dp,
-                        bottom = if (isLandscape) 7.dp else navigationBarHeight + 7.dp,
-                        start = 7.dp,
-                        end = 7.dp
-                    )
+                    .windowInsetsPadding(WindowInsets.systemBars)
+                    .padding(7.dp)
             ) {
                 if (isLandscape) {
                     // 横屏：左（搜索+设备）右（图表）

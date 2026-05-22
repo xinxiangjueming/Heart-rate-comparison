@@ -17,10 +17,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import kotlinx.coroutines.delay
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.heartratecomparison.R
 import com.example.heartratecomparison.model.UiDeviceState
+import com.example.heartratecomparison.ui.theme.LocalChartAxis
+import com.example.heartratecomparison.ui.theme.LocalChartGrid
 
 @Composable
 fun MultiHeartRateChart(
@@ -84,23 +87,47 @@ fun MultiHeartRateChart(
         return
     }
 
-    val yMax by remember {
-        derivedStateOf {
-            val maxHr = connected.flatMap { it.second.heartRateHistory }.maxOrNull() ?: 0
-            when {
-                maxHr <= 100 -> 100f
-                maxHr <= 150 -> 150f
-                else -> 220f
-            }
-        }
+    val yMax by derivedStateOf {
+        val recentMax = deviceStates.values
+            .filter { it.isConnected }
+            .flatMap { it.heartRateHistory.takeLast(60) }
+            .maxOrNull() ?: 0
+        val padded = (recentMax + 20).coerceAtMost(220)
+        ((padded + 9) / 10 * 10).toFloat()
     }
-    val yMin = 50f
+    val yMin by derivedStateOf {
+        val recentMin = deviceStates.values
+            .filter { it.isConnected }
+            .flatMap { it.heartRateHistory.takeLast(60) }
+            .minOrNull() ?: 0
+        val padded = (recentMin - 20).coerceAtLeast(40)
+        (padded / 10 * 10).toFloat()
+    }
     val density = LocalDensity.current
     val fontScale = density.fontScale
     val isDark = isSystemInDarkTheme()
     val labelColor = if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
-    val axisColor = if (isDark) Color(0xFF888888) else Color.DarkGray
-    val gridColor = if (isDark) Color(0xFF444444) else Color.LightGray
+    val axisColor = LocalChartAxis.current
+    val gridColor = LocalChartGrid.current
+
+    // 限帧：最多每 300ms 更新一次图表数据
+    data class ChartDeviceData(val addr: String, val color: Color, val values: List<Int>)
+    var throttledData by remember { mutableStateOf(emptyList<ChartDeviceData>()) }
+    var lastUpdateTime by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(connected) {
+        while (true) {
+            val now = System.currentTimeMillis()
+            if (now - lastUpdateTime >= 300) {
+                throttledData = connected.mapNotNull { (addr, state) ->
+                    if (state.heartRateHistory.size < 2) return@mapNotNull null
+                    val color = deviceColors[addr] ?: Color.Gray
+                    ChartDeviceData(addr, color, downsample(state.heartRateHistory, 600))
+                }
+                lastUpdateTime = now
+            }
+            delay(100)
+        }
+    }
 
     // 时间格式化：不足1分钟显示 "XX s"，超过1分钟显示 "X min"
     fun formatTime(seconds: Int): String {
@@ -163,12 +190,10 @@ fun MultiHeartRateChart(
                     drawLine(gridColor, Offset(x, 0f), Offset(x, height), strokeWidth = 1f, pathEffect = dashEffect)
                 }
 
-                // 绘制曲线及背景填充
-                for ((addr, state) in connected) {
-                    val history = state.heartRateHistory.takeLast(300)
-                    if (history.size < 2) continue
-                    val color = deviceColors[addr] ?: Color.Gray
-                    val fillColor = color.copy(alpha = 0.15f)
+                // 绘制曲线及背景填充（使用限帧+降采样后的数据）
+                for (device in throttledData) {
+                    val history = device.values
+                    val fillColor = device.color.copy(alpha = 0.15f)
 
                     // 曲线路径
                     val linePath = Path()
@@ -188,7 +213,7 @@ fun MultiHeartRateChart(
 
                     // 先填充，再描边
                     drawPath(fillPath, fillColor, style = Fill)
-                    drawPath(linePath, color, style = Stroke(width = 3f))
+                    drawPath(linePath, device.color, style = Stroke(width = 3f))
                 }
             }
         }
@@ -228,4 +253,27 @@ fun MultiHeartRateChart(
             }
         }
     }
+}
+
+/**
+ * 降采样：将数据按目标数量分桶，每桶保留 min 和 max，保留曲线形状
+ */
+private fun downsample(data: List<Int>, targetCount: Int): List<Int> {
+    if (data.size <= targetCount) return data
+    val bucketSize = data.size.toFloat() / targetCount
+    val result = mutableListOf<Int>()
+    var i = 0
+    while (i < data.size) {
+        val end = minOf((i + bucketSize).toInt(), data.size)
+        var bucketMin = data[i]
+        var bucketMax = data[i]
+        for (j in i until end) {
+            if (data[j] < bucketMin) bucketMin = data[j]
+            if (data[j] > bucketMax) bucketMax = data[j]
+        }
+        result.add(bucketMin)
+        if (bucketMax != bucketMin) result.add(bucketMax)
+        i = end
+    }
+    return result
 }
