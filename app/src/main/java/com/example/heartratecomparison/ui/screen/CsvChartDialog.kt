@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -308,6 +309,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                                 if (colIndex in hiddenDevices) return@forEachIndexed
                                 if (col.values.size < 2) return@forEachIndexed
                                 val color = chartColors[colIndex % chartColors.size]
+                                val fillColor = color.copy(alpha = 0.15f)
                                 val mainPath = Path()
                                 var started = false
 
@@ -321,7 +323,48 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                                     else mainPath.lineTo(x, y)
                                 }
 
-                                // 左边界插值（独立线段）
+                                // 构建填充路径：从左边界开始，沿曲线，到右边界，封闭到底部
+                                val fillPath = Path()
+
+                                // 左边界插值
+                                val leftY = if (iStart > 0 && visStart > iStart) {
+                                    val prev = col.values[iStart - 1]
+                                    val curr = col.values[iStart]
+                                    val frac = visStart - iStart
+                                    prev + (curr - prev) * frac
+                                } else {
+                                    col.values[iStart].toFloat()
+                                }
+                                fillPath.moveTo(0f, yForValue(leftY))
+
+                                // 连接到主曲线
+                                var fillStarted = false
+                                for (i in iStart..iEnd) {
+                                    val x = scaledX(i)
+                                    val y = yForValue(col.values[i])
+                                    if (!fillStarted) { fillPath.lineTo(x, y); fillStarted = true }
+                                    else fillPath.lineTo(x, y)
+                                }
+
+                                // 右边界插值
+                                val lastIdx = col.values.size - 1
+                                if (iEnd < lastIdx && visEnd < lastIdx) {
+                                    val frac = visEnd - iEnd
+                                    val interpY = col.values[iEnd] + (col.values[iEnd + 1] - col.values[iEnd]) * frac
+                                    fillPath.lineTo(w, yForValue(interpY))
+                                } else {
+                                    fillPath.lineTo(w, yForValue(col.values[iEnd]))
+                                }
+
+                                // 封闭到底部
+                                fillPath.lineTo(w, h)
+                                fillPath.lineTo(0f, h)
+                                fillPath.close()
+
+                                // 先填充，再描边
+                                drawPath(fillPath, fillColor, style = Fill)
+
+                                // 左边界描边
                                 if (iStart > 0 && visStart > iStart) {
                                     val prev = col.values[iStart - 1]
                                     val curr = col.values[iStart]
@@ -334,8 +377,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                                     drawPath(leftPath, color, style = Stroke(width = 3f))
                                 }
 
-                                // 右边界插值（独立线段）
-                                val lastIdx = col.values.size - 1
+                                // 右边界描边
                                 if (iEnd < lastIdx && visEnd < lastIdx) {
                                     val frac = visEnd - iEnd
                                     val interpY = col.values[iEnd] + (col.values[iEnd + 1] - col.values[iEnd]) * frac

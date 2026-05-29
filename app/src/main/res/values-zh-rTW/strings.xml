@@ -32,6 +32,8 @@
 
     <!-- DeviceItem -->
     <string name="desc_bluetooth">藍牙</string>
+    <string name="label_battery">電量</string>
+    <string name="label_heart_rate">心率</string>
 
     <!-- HeartRateService -->
     <string name="notif_service_started">服務已啟動</string>

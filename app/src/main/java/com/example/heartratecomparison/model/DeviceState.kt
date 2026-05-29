@@ -7,6 +7,7 @@ data class DeviceState(
     val device: BluetoothDevice,
     var isConnected: Boolean = false,
     var heartRate: Int? = null,
+    var batteryLevel: Int? = null,
     var gatt: BluetoothGatt? = null,
     val heartRateHistory: MutableList<Int> = mutableListOf()
 )

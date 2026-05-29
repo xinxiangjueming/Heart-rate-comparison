@@ -27,6 +27,8 @@
 
     <!-- DeviceItem -->
     <string name="desc_bluetooth">Bluetooth</string>
+    <string name="label_battery">Batterie</string>
+    <string name="label_heart_rate">HF</string>
 
     <!-- HeartRateService -->
     <string name="notif_service_started">Dienst gestartet</string>

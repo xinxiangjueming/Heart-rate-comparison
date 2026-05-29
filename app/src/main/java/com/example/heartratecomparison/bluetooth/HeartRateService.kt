@@ -103,6 +103,10 @@ class HeartRateService : Service() {
                     csvRecorder.onHeartRate(addr, hr)
                 }
                 emitState()
+            },
+            onBatteryLevelReceived = { addr, level ->
+                deviceStates[addr]?.batteryLevel = level
+                emitState()
             }
         )
 
@@ -226,6 +230,7 @@ class HeartRateService : Service() {
                 name = ds.device.name ?: addr,
                 isConnected = ds.isConnected,
                 heartRate = ds.heartRate,
+                batteryLevel = ds.batteryLevel,
                 heartRateHistory = ds.heartRateHistory.toList()
             )
         }

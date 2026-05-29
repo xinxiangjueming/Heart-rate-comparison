@@ -7,5 +7,6 @@ data class UiDeviceState(
     val name: String,
     val isConnected: Boolean,
     val heartRate: Int?,
+    val batteryLevel: Int?,
     val heartRateHistory: List<Int>
 ) : Serializable
