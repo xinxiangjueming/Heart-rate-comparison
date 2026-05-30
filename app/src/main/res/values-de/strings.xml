@@ -18,7 +18,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">Kein Gerät verbunden</string>
     <string name="chart_guide_search">Tippen Sie auf „Suchen", um Herzfrequenzgeräte zu scannen</string>
-    <string name="chart_guide_connect">Tippen Sie auf ein Gerät zum Verbinden, langes Drücken zum Trennen</string>
+    <string name="chart_guide_connect">Tippen Sie auf das Bluetooth-Symbol zum Verbinden, langes Drücken zum Trennen</string>
     <string name="chart_guide_record">„Suchen" 1,5 s gedrückt halten zum Starten</string>
     <string name="chart_guide_stop">„Suchen" 3 s gedrückt halten zum Stoppen</string>
     <string name="chart_guide_history">„Suchen" 1,5 s gedrückt halten für Verlauf (ohne Gerät)</string>

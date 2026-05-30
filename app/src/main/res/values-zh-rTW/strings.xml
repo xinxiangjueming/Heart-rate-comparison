@@ -18,7 +18,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">暫無裝置連線</string>
     <string name="chart_guide_search">點擊「搜尋」掃描心率裝置</string>
-    <string name="chart_guide_connect">點擊裝置連線，長按斷開</string>
+    <string name="chart_guide_connect">點擊藍牙圖示連線，長按斷開</string>
     <string name="chart_guide_record">長按「搜尋」1.5秒開始記錄</string>
     <string name="chart_guide_stop">記錄中長按「搜尋」3秒停止</string>
     <string name="chart_guide_history">無裝置時長按「搜尋」1.5秒查看歷史</string>

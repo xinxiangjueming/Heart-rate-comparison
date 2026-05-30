@@ -18,7 +18,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">연결된 기기 없음</string>
     <string name="chart_guide_search">「검색」을 탭하여 심박수 기기를 스캔하세요</string>
-    <string name="chart_guide_connect">기기를 탭하여 연결, 길게 눌러 연결 해제</string>
+    <string name="chart_guide_connect">블루투스 아이콘을 탭하여 연결, 길게 눌러 연결 해제</string>
     <string name="chart_guide_record">「검색」을 1.5초 길게 눌러 기록 시작</string>
     <string name="chart_guide_stop">기록 중 「검색」을 3초 길게 눌러 중지</string>
     <string name="chart_guide_history">기기 없을 때 「검색」을 1.5초 길게 눌러 기록 보기</string>

@@ -18,7 +18,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">Aucun appareil connecté</string>
     <string name="chart_guide_search">Appuyez sur « Rechercher » pour scanner les appareils</string>
-    <string name="chart_guide_connect">Appuyez sur un appareil pour connecter, maintenez pour déconnecter</string>
+    <string name="chart_guide_connect">Appuyez sur l\'icône Bluetooth pour connecter, maintenez pour déconnecter</string>
     <string name="chart_guide_record">Maintenez « Rechercher » 1,5 s pour démarrer l\'enregistrement</string>
     <string name="chart_guide_stop">Maintenez « Rechercher » 3 s pour arrêter l\'enregistrement</string>
     <string name="chart_guide_history">Maintenez « Rechercher » 1,5 s pour voir l\'historique (sans appareil)</string>

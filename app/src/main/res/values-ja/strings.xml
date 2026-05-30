@@ -18,7 +18,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">デバイス未接続</string>
     <string name="chart_guide_search">「検索」をタップして心拍数デバイスをスキャン</string>
-    <string name="chart_guide_connect">デバイスをタップして接続、長押しで切断</string>
+    <string name="chart_guide_connect">蓝牙アイコンをタップして接続、長押しで切断</string>
     <string name="chart_guide_record">「検索」を1.5秒長押しで記録開始</string>
     <string name="chart_guide_stop">記録中「検索」を3秒長押しで停止</string>
     <string name="chart_guide_history">デバイスなし時に「検索」を1.5秒長押しで履歴表示</string>

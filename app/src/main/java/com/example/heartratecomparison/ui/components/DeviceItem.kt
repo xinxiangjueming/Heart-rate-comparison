@@ -3,11 +3,14 @@ package com.example.heartratecomparison.ui.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,11 +58,7 @@ fun DeviceItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .border(1.dp, borderColor, shape)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            ),
+            .border(1.dp, borderColor, shape),
         shape = shape,
         colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
@@ -120,12 +119,24 @@ fun DeviceItem(
                     }
                 }
             }
-            Icon(
-                imageVector = Icons.Filled.Bluetooth,
-                contentDescription = stringResource(R.string.desc_bluetooth),
-                tint = if (deviceState.isConnected) BluetoothConnected else BluetoothDisconnected,
-                modifier = Modifier.weight(1f)
-            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .combinedClickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = rememberRipple(bounded = false),
+                        onClick = onClick,
+                        onLongClick = onLongClick
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Bluetooth,
+                    contentDescription = stringResource(R.string.desc_bluetooth),
+                    tint = if (deviceState.isConnected) BluetoothConnected else BluetoothDisconnected,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }

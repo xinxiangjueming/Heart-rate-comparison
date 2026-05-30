@@ -18,7 +18,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">暂无设备连接</string>
     <string name="chart_guide_search">点击「搜索」扫描心率设备</string>
-    <string name="chart_guide_connect">点击设备连接，长按断开</string>
+    <string name="chart_guide_connect">点击蓝牙图标连接，长按断开</string>
     <string name="chart_guide_record">长按「搜索」1.5秒开始记录</string>
     <string name="chart_guide_stop">记录中长按「搜索」3秒停止</string>
     <string name="chart_guide_history">无设备时长按「搜索」1.5秒查看历史</string>

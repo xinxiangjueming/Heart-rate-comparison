@@ -18,7 +18,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">No device connected</string>
     <string name="chart_guide_search">Tap "Search" to scan for heart rate devices</string>
-    <string name="chart_guide_connect">Tap a device to connect, long press to disconnect</string>
+    <string name="chart_guide_connect">Tap bluetooth icon to connect, long press to disconnect</string>
     <string name="chart_guide_record">Long press "Search" for 1.5s to start recording</string>
     <string name="chart_guide_stop">Long press "Search" for 3s to stop recording</string>
     <string name="chart_guide_history">Long press "Search" for 1.5s to view history (no device)</string>
