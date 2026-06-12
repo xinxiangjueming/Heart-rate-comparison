@@ -16,6 +16,7 @@ import com.example.heartratecomparison.data.CsvRecorder
 import com.example.heartratecomparison.model.DeviceState
 import com.example.heartratecomparison.model.UiDeviceState
 import kotlinx.coroutines.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -24,7 +25,14 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 class HeartRateService : Service() {
 
-    private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+    // ── BLE 高优先级：单线程调度器，保证 GATT 操作顺序 ─────
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val bleDispatcher = Dispatchers.Default.limitedParallelism(1)
+    private val bleScope = CoroutineScope(bleDispatcher + SupervisorJob())
+
+    // ── 通用后台：周期任务（轻量，保留在 Main） ────────────
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
     private lateinit var connector: BluetoothConnector
     private lateinit var csvRecorder: CsvRecorder
     private val deviceStates = ConcurrentHashMap<String, DeviceState>()
@@ -85,32 +93,45 @@ class HeartRateService : Service() {
 
         connector = BluetoothConnector(
             context = this,
-            scope = serviceScope,
+            scope = bleScope,
             onDeviceConnected = { addr ->
-                deviceStates[addr]?.isConnected = true
-                emitState()
+                // BLE 线程 → 切回主线程更新 UI 状态
+                serviceScope.launch {
+                    deviceStates[addr]?.isConnected = true
+                    emitState()
+                }
             },
             onDeviceDisconnected = { addr ->
-                deviceStates[addr]?.isConnected = false
-                emitState()
+                serviceScope.launch {
+                    deviceStates[addr]?.isConnected = false
+                    emitState()
+                }
             },
             onHeartRateReceived = { addr, hr ->
-                deviceStates[addr]?.heartRate = hr
+                // CSV 录制：Channel 式发送，零阻塞
                 if (isRecording) {
-                    val history = deviceStates[addr]?.heartRateHistory ?: mutableListOf()
-                    history.add(hr)
-                    if (history.size > 300) history.removeAt(0)
                     csvRecorder.onHeartRate(addr, hr)
                 }
-                emitState()
+                // 切回主线程更新业务状态 & UI
+                serviceScope.launch {
+                    deviceStates[addr]?.heartRate = hr
+                    if (isRecording) {
+                        val history = deviceStates[addr]?.heartRateHistory ?: mutableListOf()
+                        history.add(hr)
+                        if (history.size > 300) history.removeAt(0)
+                    }
+                    emitState()
+                }
             },
             onBatteryLevelReceived = { addr, level ->
-                deviceStates[addr]?.batteryLevel = level
-                emitState()
+                serviceScope.launch {
+                    deviceStates[addr]?.batteryLevel = level
+                    emitState()
+                }
             }
         )
 
-        csvRecorder = CsvRecorder(serviceScope, this)
+        csvRecorder = CsvRecorder(this)
 
         serviceScope.launch {
             while (isActive) {
@@ -201,21 +222,28 @@ class HeartRateService : Service() {
         val addressToName = connectedDevices.mapValues { (_, ds) ->
             ds.device.name ?: ds.device.address
         }
-        csvRecorder.start(connectedAddresses, addressToName) { error ->
-            Log.e(TAG, "CSV error: $error")
-            isRecording = false
-            updateNotification(getString(R.string.notif_record_failed))
+        serviceScope.launch {
+            if (isRecording) return@launch
+            try {
+                csvRecorder.start(connectedAddresses, addressToName)
+                // 文件已创建 & 表头已写入，安全标记录制开始
+                isRecording = true
+                updateNotification(getString(R.string.notif_recording))
+            } catch (e: Exception) {
+                Log.e(TAG, "CSV 录制启动失败", e)
+                isRecording = false
+                updateNotification(getString(R.string.notif_record_failed))
+            }
             emitState()
         }
-        isRecording = true
-        updateNotification(getString(R.string.notif_recording))
-        emitState()
     }
 
     private fun stopRecording() {
         if (!isRecording) return
         serviceScope.launch {
+            // suspend — 等待 IO 线程完成文件 flush/close，不阻塞主线程
             csvRecorder.stop()
+            // 文件已落盘，切回主线程清理状态
             deviceStates.values.forEach { it.heartRateHistory.clear() }
             isRecording = false
             updateNotification(getString(R.string.notif_record_stopped))
@@ -300,9 +328,12 @@ class HeartRateService : Service() {
             scanner = null
         }
         if (isRecording) {
-            csvRecorder.stop()
+            // onDestroy 在主线程，csvRecorder.stop() 是 suspend
+            // 用 runBlocking 等待文件关闭（onDestroy 是生命周期终结，短暂阻塞可接受）
+            runBlocking { csvRecorder.stop() }
             isRecording = false
         }
+        bleScope.cancel()
         serviceScope.cancel()
         connector.disconnectAll()
         super.onDestroy()

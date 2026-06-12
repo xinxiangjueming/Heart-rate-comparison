@@ -27,6 +27,8 @@ import com.example.heartratecomparison.ui.theme.LocalDeviceCardBorder
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -43,28 +45,23 @@ fun HistoryScreen(onBack: () -> Unit) {
 
     val comparisonDir = remember { File(context.getExternalFilesDir(null), "Comparison") }
 
-    var fileList by remember {
-        mutableStateOf(
-            run {
-                if (comparisonDir.exists()) {
-                    comparisonDir.listFiles { f -> f.extension == "csv" }
-                        ?.sortedByDescending { it.lastModified() }
-                        ?: emptyList()
-                } else {
-                    emptyList()
-                }
+    var fileList by remember { mutableStateOf(emptyList<File>()) }
+    var refreshTrigger by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(refreshTrigger) {
+        fileList = withContext(Dispatchers.IO) {
+            if (comparisonDir.exists()) {
+                comparisonDir.listFiles { f -> f.extension == "csv" }
+                    ?.sortedByDescending { it.lastModified() }
+                    ?: emptyList()
+            } else {
+                emptyList()
             }
-        )
+        }
     }
 
     fun refreshFileList() {
-        fileList = if (comparisonDir.exists()) {
-            comparisonDir.listFiles { f -> f.extension == "csv" }
-                ?.sortedByDescending { it.lastModified() }
-                ?: emptyList()
-        } else {
-            emptyList()
-        }
+        refreshTrigger++
     }
 
     var fileToDelete by remember { mutableStateOf<File?>(null) }

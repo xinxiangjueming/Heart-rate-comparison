@@ -49,7 +49,6 @@ private const val TAG = "MainScreen"
 fun MainScreen() {
     val context = LocalContext.current
     val activity = context as? Activity
-    val density = LocalDensity.current
 
     val vibrator = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

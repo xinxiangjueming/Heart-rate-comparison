@@ -104,7 +104,6 @@ fun MultiHeartRateChart(
         (padded / 10 * 10).toFloat()
     }
     val density = LocalDensity.current
-    val fontScale = density.fontScale
     val isDark = isSystemInDarkTheme()
     val labelColor = if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
     val axisColor = LocalChartAxis.current

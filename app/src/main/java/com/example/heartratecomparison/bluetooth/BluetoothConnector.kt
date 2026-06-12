@@ -5,7 +5,6 @@ import android.bluetooth.*
 import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
-import com.example.heartratecomparison.model.DeviceState
 import kotlinx.coroutines.*
 import java.util.UUID
 
@@ -16,9 +15,18 @@ val BATTERY_SERVICE_UUID = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb
 val BATTERY_LEVEL_UUID = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
 val DEVICE_INFO_SERVICE_UUID = UUID.fromString("0000180a-0000-1000-8000-00805f9b34fb")
 
+/**
+ * BLE 连接管理器 — 高优先级 BLE 线程架构
+ *
+ * 线程模型：
+ *   - scope 注入 bleScope（Dispatchers.Default.limitedParallelism(1)，单线程）
+ *   - GATT 回调通过 scope.launch 在 BLE 线程处理（序列化，无并发）
+ *   - onHeartRateReceived / onDeviceConnected 等回调在 BLE 线程触发
+ *   - HeartRateService 负责在回调中 withContext(Main) 更新 UI
+ */
 class BluetoothConnector(
     private val context: Context,
-    private val scope: CoroutineScope,
+    private val scope: CoroutineScope,  // bleScope，BLE 单线程调度器
     private val onDeviceConnected: (String) -> Unit,
     private val onDeviceDisconnected: (String) -> Unit,
     private val onHeartRateReceived: (String, Int) -> Unit,
@@ -36,57 +44,51 @@ class BluetoothConnector(
 
         val gattCallback = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-                if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    if (status == BluetoothGatt.GATT_SUCCESS) {
-                        gatt.discoverServices()
-                    } else {
-                        Log.e(TAG, "GATT 连接失败, status=$status")
-                        gattMap.remove(device.address)
-                        gatt.close()
-                        scope.launch(Dispatchers.Main) {
+                scope.launch {
+                    if (newState == BluetoothProfile.STATE_CONNECTED) {
+                        if (status == BluetoothGatt.GATT_SUCCESS) {
+                            gatt.discoverServices()
+                        } else {
+                            Log.e(TAG, "GATT 连接失败, status=$status")
+                            gattMap.remove(device.address)
+                            gatt.close()
                             onDeviceDisconnected(device.address)
                         }
-                    }
-                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    gattMap.remove(device.address)
-                    scope.launch(Dispatchers.Main) {
+                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                        gattMap.remove(device.address)
                         onDeviceDisconnected(device.address)
                     }
                 }
             }
 
             override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    val service = gatt.getService(HEART_RATE_SERVICE_UUID.uuid)
-                    val characteristic = service?.getCharacteristic(HEART_RATE_MEASUREMENT_UUID)
-                    if (characteristic != null) {
-                        gatt.setCharacteristicNotification(characteristic, true)
-                        val descriptor = characteristic.getDescriptor(CCCD_UUID)
-                        if (descriptor != null) {
-                            @Suppress("DEPRECATION")
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                                gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                scope.launch {
+                    if (status == BluetoothGatt.GATT_SUCCESS) {
+                        val service = gatt.getService(HEART_RATE_SERVICE_UUID.uuid)
+                        val characteristic = service?.getCharacteristic(HEART_RATE_MEASUREMENT_UUID)
+                        if (characteristic != null) {
+                            gatt.setCharacteristicNotification(characteristic, true)
+                            val descriptor = characteristic.getDescriptor(CCCD_UUID)
+                            if (descriptor != null) {
+                                @Suppress("DEPRECATION")
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                    gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                                } else {
+                                    descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                    gatt.writeDescriptor(descriptor)
+                                }
                             } else {
-                                descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                                gatt.writeDescriptor(descriptor)
+                                onDeviceReady(gatt)
                             }
+                            onDeviceConnected(device.address)
                         } else {
                             onDeviceReady(gatt)
-                        }
-                        scope.launch(Dispatchers.Main) {
                             onDeviceConnected(device.address)
                         }
                     } else {
-                        onDeviceReady(gatt)
-                        scope.launch(Dispatchers.Main) {
-                            onDeviceConnected(device.address)
-                        }
-                    }
-                } else {
-                    Log.e(TAG, "服务发现失败, status=$status")
-                    gattMap.remove(device.address)
-                    gatt.close()
-                    scope.launch(Dispatchers.Main) {
+                        Log.e(TAG, "服务发现失败, status=$status")
+                        gattMap.remove(device.address)
+                        gatt.close()
                         onDeviceDisconnected(device.address)
                     }
                 }
@@ -94,40 +96,43 @@ class BluetoothConnector(
 
             @Suppress("DEPRECATION")
             override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
-                if (descriptor.uuid == CCCD_UUID) {
-                    onDeviceReady(gatt)
+                scope.launch {
+                    if (descriptor.uuid == CCCD_UUID) {
+                        onDeviceReady(gatt)
+                    }
                 }
             }
 
             @Deprecated("Deprecated in API 33")
             override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
-                handleBatteryRead(characteristic.uuid, characteristic.value, status)
+                scope.launch {
+                    @Suppress("DEPRECATION")
+                    handleBatteryRead(characteristic.uuid, characteristic.value, status)
+                }
             }
 
             override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray, status: Int) {
-                handleBatteryRead(characteristic.uuid, value, status)
+                scope.launch {
+                    handleBatteryRead(characteristic.uuid, value, status)
+                }
             }
 
             @Deprecated("Deprecated in API 33")
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
                 if (characteristic.uuid == HEART_RATE_MEASUREMENT_UUID) {
-                    scope.launch(Dispatchers.Default) {
+                    scope.launch {
                         @Suppress("DEPRECATION")
                         val hr = parseHeartRate(characteristic.value)
-                        withContext(Dispatchers.Main) {
-                            onHeartRateReceived(device.address, hr)
-                        }
+                        onHeartRateReceived(device.address, hr)
                     }
                 }
             }
 
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
                 if (characteristic.uuid == HEART_RATE_MEASUREMENT_UUID) {
-                    scope.launch(Dispatchers.Default) {
+                    scope.launch {
                         val hr = parseHeartRate(value)
-                        withContext(Dispatchers.Main) {
-                            onHeartRateReceived(device.address, hr)
-                        }
+                        onHeartRateReceived(device.address, hr)
                     }
                 }
             }
@@ -136,9 +141,7 @@ class BluetoothConnector(
                 if (status == BluetoothGatt.GATT_SUCCESS && uuid == BATTERY_LEVEL_UUID) {
                     val level = value?.getOrNull(0)?.toInt()?.and(0xFF)
                     if (level != null) {
-                        scope.launch(Dispatchers.Main) {
-                            onBatteryLevelReceived(device.address, level)
-                        }
+                        onBatteryLevelReceived(device.address, level)
                     }
                 }
             }

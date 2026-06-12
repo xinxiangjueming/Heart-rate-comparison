@@ -12,7 +12,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -72,7 +74,13 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
 
     BackHandler { onBack() }
 
-    val parsed = remember(file) { parseCsv(file) }
+    var parsed by remember { mutableStateOf<CsvParsed?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(file) {
+        isLoading = true
+        parsed = withContext(Dispatchers.IO) { parseCsv(file) }
+        isLoading = false
+    }
     var hiddenDevices by remember { mutableStateOf(setOf<Int>()) }
 
     val axisColor = LocalChartAxis.current
@@ -93,7 +101,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
             ) {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.Default.ArrowBack,
+                        Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "返回",
                         tint = MaterialTheme.colorScheme.onSurface
                     )
@@ -107,7 +115,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                 Spacer(modifier = Modifier.width(16.dp))
                 parsed?.columns?.forEachIndexed { index, col ->
                     val isHidden = index in hiddenDevices
-                    val visibleCount = (parsed.columns.size - hiddenDevices.size)
+                    val visibleCount = ((parsed?.columns?.size ?: 0) - hiddenDevices.size)
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -137,13 +145,14 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // 图表
-            if (parsed == null || parsed.columns.isEmpty()) {
+            val parsedData = parsed
+            if (parsedData == null || parsedData.columns.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                     Text("无法解析 CSV 数据", color = MaterialTheme.colorScheme.onSurface)
                 }
             } else {
-                val yMin = parsed.globalMin * 0.95f
-                val yMax = parsed.globalMax * 1.05f
+                val yMin = parsedData.globalMin * 0.95f
+                val yMax = parsedData.globalMax * 1.05f
 
                 Column(
                     modifier = Modifier
@@ -153,7 +162,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                         .padding(start = 15.dp, top = 25.dp, end = 15.dp, bottom = 15.dp)
                 ) {
                     // 缩放状态（图表和时间标签共享）
-                    val maxDataPoints = parsed.columns.maxOfOrNull { it.values.size } ?: 0
+                    val maxDataPoints = parsedData.columns.maxOfOrNull { it.values.size } ?: 0
                     var zoomLevel by remember { mutableFloatStateOf(1f) }
                     var panOffset by remember { mutableFloatStateOf(0f) }
 
@@ -261,7 +270,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                             // 可见数据的 Y 范围
                             var visMin = Float.MAX_VALUE
                             var visMax = Float.MIN_VALUE
-                            parsed.columns.forEachIndexed { colIndex, col ->
+                            parsedData.columns.forEachIndexed { colIndex, col ->
                                 if (colIndex in hiddenDevices) return@forEachIndexed
                                 val startIdx = visStart.toInt().coerceIn(0, col.values.size - 1)
                                 val endIdx = visEnd.toInt().coerceIn(0, col.values.size - 1)
@@ -305,7 +314,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                                 return h - (v - adjYMin) / (adjYMax - adjYMin) * h
                             }
 
-                            parsed.columns.forEachIndexed { colIndex, col ->
+                            parsedData.columns.forEachIndexed { colIndex, col ->
                                 if (colIndex in hiddenDevices) return@forEachIndexed
                                 if (col.values.size < 2) return@forEachIndexed
                                 val color = chartColors[colIndex % chartColors.size]
@@ -414,12 +423,12 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                             val visibleCount = (maxDataPoints / zoomLevel).coerceAtLeast(2f)
                             val visStart = panOffset
                             val visEnd = panOffset + visibleCount
-                            val tStartIdx = visStart.toInt().coerceIn(0, (parsed.times.size - 1).coerceAtLeast(0))
-                            val tEndIdx = visEnd.toInt().coerceIn(0, (parsed.times.size - 1).coerceAtLeast(0))
-                            val tMidIdx = ((visStart + visEnd) / 2f).toInt().coerceIn(0, (parsed.times.size - 1).coerceAtLeast(0))
-                            val tStart = parsed.times.getOrNull(tStartIdx) ?: parsed.times.firstOrNull() ?: 0f
-                            val tEnd = parsed.times.getOrNull(tEndIdx) ?: parsed.times.lastOrNull() ?: 0f
-                            val tMid = parsed.times.getOrNull(tMidIdx) ?: (tStart + tEnd) / 2f
+                            val tStartIdx = visStart.toInt().coerceIn(0, (parsedData.times.size - 1).coerceAtLeast(0))
+                            val tEndIdx = visEnd.toInt().coerceIn(0, (parsedData.times.size - 1).coerceAtLeast(0))
+                            val tMidIdx = ((visStart + visEnd) / 2f).toInt().coerceIn(0, (parsedData.times.size - 1).coerceAtLeast(0))
+                            val tStart = parsedData.times.getOrNull(tStartIdx) ?: parsedData.times.firstOrNull() ?: 0f
+                            val tEnd = parsedData.times.getOrNull(tEndIdx) ?: parsedData.times.lastOrNull() ?: 0f
+                            val tMid = parsedData.times.getOrNull(tMidIdx) ?: (tStart + tEnd) / 2f
 
                             Text(
                                 text = formatTime(tStart),
