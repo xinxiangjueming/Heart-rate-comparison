@@ -89,7 +89,7 @@ fun MainScreen() {
         context.startService(intent)
     }
 
-    // Android 12+ 的 BLE 扫描不再需要定位权限；Android 8~11 仍需 FINE_LOCATION
+    // BLUETOOTH_SCAN 已声明 neverForLocation → Android 12+ 扫描不再需要定位权限；Android 8~11 仍需 FINE_LOCATION
     val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
     } else {

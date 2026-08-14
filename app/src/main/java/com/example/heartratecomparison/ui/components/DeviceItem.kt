@@ -1,5 +1,10 @@
 package com.example.heartratecomparison.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -74,8 +79,12 @@ fun DeviceItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (deviceState.isConnected &&
-                    (deviceState.batteryLevel != null || deviceState.heartRate != null)
+                // 连接后电池/心率信息行：淡入 + 纵向展开过渡
+                AnimatedVisibility(
+                    visible = deviceState.isConnected &&
+                        (deviceState.batteryLevel != null || deviceState.heartRate != null),
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
                 ) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
