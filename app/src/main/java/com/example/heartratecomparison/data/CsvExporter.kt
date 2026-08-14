@@ -27,7 +27,11 @@ object CsvExporter {
         if (samples.isEmpty()) return null
         val batterySnapshots = dao.getBatterySnapshots(sessionId)
 
-        val dir = File(context.cacheDir, "share").apply { mkdirs() }
+        val dir = File(context.cacheDir, "share").apply {
+            mkdirs()
+            // 清理上一次分享遗留的临时 CSV（避免缓存累积）；当前文件保留供接收方读取
+            listFiles()?.forEach { it.delete() }
+        }
         val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date(session.startTime))
         val file = File(dir, "heart_$dateStr.csv")
 

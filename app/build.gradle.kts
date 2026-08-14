@@ -33,6 +33,19 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    buildTypes {
+        release {
+            // R8 代码裁剪 + 资源裁剪：剔除未用代码（如 icons-extended 未用图标）与未用资源，
+            // 显著减小 APK 与安装体积
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
 }
 
 dependencies {
