@@ -35,6 +35,12 @@ fun MultiHeartRateChart(
         val state = deviceStates[addr]
         if (state?.isConnected == true) addr to state else null
     }
+    // 稳定 key：设备地址集合（结构性相等），避免每次心率重组都重启图表协程
+    val connectedAddresses = connected.map { it.first }
+
+    // 协程常驻后仍需读到每次重组后的最新值（否则闭包捕获旧引用）
+    val currentConnected by rememberUpdatedState(connected)
+    val currentDeviceColors by rememberUpdatedState(deviceColors)
 
     if (connected.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -113,18 +119,28 @@ fun MultiHeartRateChart(
     data class ChartDeviceData(val addr: String, val color: Color, val values: List<Int>)
     var throttledData by remember { mutableStateOf(emptyList<ChartDeviceData>()) }
     var lastUpdateTime by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(connected) {
+    LaunchedEffect(connectedAddresses) {
         while (true) {
             val now = System.currentTimeMillis()
             if (now - lastUpdateTime >= 300) {
-                throttledData = connected.mapNotNull { (addr, state) ->
+                throttledData = currentConnected.mapNotNull { (addr, state) ->
                     if (state.heartRateHistory.size < 2) return@mapNotNull null
-                    val color = deviceColors[addr] ?: Color.Gray
+                    val color = currentDeviceColors[addr] ?: Color.Gray
                     ChartDeviceData(addr, color, downsample(state.heartRateHistory, 600))
                 }
                 lastUpdateTime = now
             }
             delay(100)
+        }
+    }
+
+    // 每帧可复用对象缓存（避免 draw pass 反复分配）
+    val dashEffect = remember { PathEffect.dashPathEffect(floatArrayOf(10f, 10f)) }
+    val textPaint = remember(labelColor, density) {
+        android.graphics.Paint().apply {
+            color = labelColor
+            textSize = with(density) { 10.sp.toPx() }
+            textAlign = android.graphics.Paint.Align.RIGHT
         }
     }
 
@@ -142,12 +158,6 @@ fun MultiHeartRateChart(
                     .width(25.dp)
                     .fillMaxHeight()
             ) {
-                val textPaint = android.graphics.Paint().apply {
-                    color = labelColor
-                    // 使用 sp 单位，跟随系统字体缩放
-                    textSize = with(density) { 10.sp.toPx() }
-                    textAlign = android.graphics.Paint.Align.RIGHT
-                }
                 // 与图表边框保持 3dp 间距
                 val offsetX = with(density) { 3.dp.toPx() }
                 val height = size.height
@@ -176,7 +186,6 @@ fun MultiHeartRateChart(
                 drawLine(axisColor, Offset(0f, height), Offset(width, height), strokeWidth = 3f)
 
                 // 水平网格线（虚线，跳过最底部与X轴重合的线）
-                val dashEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
                 for (bpm in (yMin.toInt() + 10)..yMax.toInt() step 10) {
                     val y = height - (bpm - yMin) / (yMax - yMin) * height
                     drawLine(gridColor, Offset(0f, y), Offset(width, y), strokeWidth = 1f, pathEffect = dashEffect)

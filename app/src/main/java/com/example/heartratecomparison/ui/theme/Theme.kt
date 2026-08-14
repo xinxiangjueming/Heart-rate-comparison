@@ -54,8 +54,10 @@ private val RedHot = Color(0xFFE53935)
 private val NeutralGray = Color(0xFFE0E0E0)
 private val SoftWhite = Color(0xFFF5F5F5)
 
-private val DarkBackground = Color(0xFF121212)
-private val DarkSurface = Color(0xFF1E1E1E)
+// 深色背景：比图表区 surface 稍深一档，避免过黑
+private val DarkBackground = Color(0xFF171717)
+// 深色图表区/卡片：比背景(0xFF171717)明显更浅，保证深色下图表区域层次清晰
+private val DarkSurface = Color(0xFF242424)
 private val DarkOnSurface = Color(0xFFE0E0E0)
 
 private val LightColors = lightColorScheme(

@@ -147,25 +147,40 @@ class BluetoothConnector(
             }
 
             private fun onDeviceReady(gatt: BluetoothGatt) {
-                // Battery Service (0x180F)
-                val batteryChar = gatt.getService(BATTERY_SERVICE_UUID)
-                    ?.getCharacteristic(BATTERY_LEVEL_UUID)
-                if (batteryChar != null) {
-                    gatt.readCharacteristic(batteryChar)
-                    return
-                }
-                // Device Information Service (0x180A) 备选
-                val disChar = gatt.getService(DEVICE_INFO_SERVICE_UUID)
-                    ?.getCharacteristic(BATTERY_LEVEL_UUID)
-                if (disChar != null) {
-                    gatt.readCharacteristic(disChar)
-                }
+                readBatteryLevel(gatt)
             }
         }
 
         device.connectGatt(context, false, gattCallback)?.also { gatt ->
             gattMap[device.address] = gatt
         }
+    }
+
+    /** 读取电量（须在 BLE 线程调用，与 GATT 回调串行）。onDeviceReady 与 refreshBattery 共用 */
+    @SuppressLint("MissingPermission")
+    private fun readBatteryLevel(gatt: BluetoothGatt) {
+        // Battery Service (0x180F)
+        val batteryChar = gatt.getService(BATTERY_SERVICE_UUID)
+            ?.getCharacteristic(BATTERY_LEVEL_UUID)
+        if (batteryChar != null) {
+            @Suppress("DEPRECATION")
+            gatt.readCharacteristic(batteryChar)
+            return
+        }
+        // Device Information Service (0x180A) 备选
+        val disChar = gatt.getService(DEVICE_INFO_SERVICE_UUID)
+            ?.getCharacteristic(BATTERY_LEVEL_UUID)
+        if (disChar != null) {
+            gatt.readCharacteristic(disChar)
+        }
+    }
+
+    /**
+     * 周期性重读某设备电量。必须在 bleScope（BLE 单线程调度器）中调用，
+     * 与 GATT 回调共享同一串行队列，不会并发读同一 gatt。
+     */
+    fun refreshBattery(address: String) {
+        gattMap[address]?.let { readBatteryLevel(it) }
     }
 
     fun disconnect(address: String) {

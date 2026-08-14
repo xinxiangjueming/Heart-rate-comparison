@@ -11,18 +11,23 @@
     <string name="btn_confirm">Confirm</string>
 
     <!-- LeftPanel -->
-    <string name="btn_scanning">Scanning…</string>
-    <string name="btn_recording">Recording…</string>
-    <string name="btn_search">Search</string>
+    <string name="cd_search">Search</string>
+    <string name="cd_record">Start recording</string>
+    <string name="cd_record_stop">Stop recording</string>
+    <string name="cd_history">View history</string>
+    <string name="tooltip_search">Scan for heart rate devices</string>
+    <string name="tooltip_record_start">Start recording</string>
+    <string name="tooltip_record_stop">Stop recording</string>
+    <string name="tooltip_history">View history records</string>
 
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">No device connected</string>
-    <string name="chart_guide_search">Tap "Search" to scan for heart rate devices</string>
+    <string name="chart_guide_search">Tap the search icon to scan for heart rate devices</string>
     <string name="chart_guide_connect">Tap bluetooth icon to connect, long press to disconnect</string>
-    <string name="chart_guide_record">Long press "Search" for 1.5s to start recording</string>
-    <string name="chart_guide_stop">Long press "Search" for 3s to stop recording</string>
-    <string name="chart_guide_history">Long press "Search" for 1.5s to view history (no device)</string>
-    <string name="chart_guide_share">Double-tap to share, long press to delete</string>
+    <string name="chart_guide_record">Tap the record icon to start recording</string>
+    <string name="chart_guide_stop">Long press the record icon for 3s to stop recording</string>
+    <string name="chart_guide_history">Tap the history icon to view history</string>
+    <string name="chart_guide_share">Double-tap a record to share, long press to delete</string>
     <string name="chart_waiting">Waiting to record…</string>
 
     <!-- CsvChartScreen -->
@@ -49,7 +54,7 @@
 
     <!-- HistoryScreen -->
     <string name="history_empty">No history records</string>
-    <string name="history_file_size">%d KB</string>
+    <string name="history_summary">%1$d samples · %2$s</string>
     <string name="history_delete_title">Delete file?</string>
     <string name="history_delete_message">Are you sure you want to delete this record?</string>
 </resources>

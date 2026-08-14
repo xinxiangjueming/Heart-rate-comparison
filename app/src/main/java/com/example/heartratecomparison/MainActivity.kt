@@ -11,13 +11,11 @@ import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import androidx.core.view.WindowCompat
 import com.example.heartratecomparison.bluetooth.HeartRateService
 import com.example.heartratecomparison.ui.screen.MainScreen
 import com.example.heartratecomparison.ui.theme.HeartRateComparisonTheme
@@ -57,21 +55,8 @@ class MainActivity : ComponentActivity() {
             startService(Intent(this, HeartRateService::class.java))
         }
 
-        // 沉浸式适配（HyperOS 全屏沉浸模式 + 自由窗口兼容 + Flip 外屏兼容）
-        enableEdgeToEdge()
-        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        // 检测是否为 Flip 设备，Flip 外屏不支持透明导航栏
-        val isFlip = try {
-            val c = Class.forName("miui.util.MiuiMultiDisplayTypeInfo")
-            val m = c.getMethod("isFlipDevice")
-            m.invoke(c) as? Boolean ?: false
-        } catch (_: Exception) { false }
-        if (isFlip) {
-            window.navigationBarColor = if (isDark) 0xFF1C1B1F.toInt() else 0xFFFFFBFE.toInt()
-        }
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        insetsController.isAppearanceLightStatusBars = !isDark
-        insetsController.isAppearanceLightNavigationBars = !isDark
+        // 沉浸式适配（HyperOS 全屏沉浸模式 + 自由窗口兼容 + Flip 外屏兼容，统一走 NavigationBarHelper）
+        NavigationBarHelper.setupEdgeToEdge(this, lightStatusBar = !isNightMode())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -83,6 +68,21 @@ class MainActivity : ComponentActivity() {
                     MainScreen()
                 }
             }
+        }
+    }
+
+    private fun isNightMode(): Boolean =
+        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // 旋转/深浅色切换后重新应用 edge-to-edge（Manifest 声明 configChanges 后旋转不重建 Activity，
+        // 系统可能按主题重放导航栏颜色，必须在此重设；180° 翻转由 NavigationBarHelper 的 insets 监听兜底）
+        NavigationBarHelper.setupEdgeToEdge(this, lightStatusBar = !isNightMode())
+        // 系统可能在配置变更后重放窗口属性，延迟一帧再设一次，确保重放之后仍是透明导航栏
+        window.decorView.post {
+            if (isFinishing || isDestroyed) return@post
+            NavigationBarHelper.setupEdgeToEdge(this, lightStatusBar = !isNightMode())
         }
     }
 }

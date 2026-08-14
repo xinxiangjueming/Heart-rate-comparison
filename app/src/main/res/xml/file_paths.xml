@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <external-files-path
-        name="comparison"
-        path="Comparison/" />
+    <!-- 分享时动态生成的临时 CSV（缓存目录，系统可清理） -->
+    <cache-path
+        name="share"
+        path="share/" />
 </paths>

@@ -43,11 +43,24 @@ class HeartRateService : Service() {
     private var scanner: BluetoothScanner? = null
     private var scanTimeoutJob: Job? = null
 
+    // ── 心率状态节流 & 增量快照（仅主线程访问） ────────────
+    private var hrDirty = false
+    private val uiCache = HashMap<String, UiDeviceState>()
+
     companion object {
         const val TAG = "HeartRateService"
         const val CHANNEL_ID = "heart_rate_service"
         const val NOTIFICATION_ID = 1
         const val ACTION_STOP = "STOP_SERVICE"
+
+        /** 心率状态合并发射周期：≤120ms 一次，避免每秒多次全量快照 */
+        private const val THROTTLE_MS = 120L
+        /** 单设备内存历史上限 */
+        private const val HISTORY_MAX = 300
+
+        /** 供静态 releaseMemory() 访问实例（onCreate 赋值 / onDestroy 置空） */
+        @Volatile
+        private var instance: HeartRateService? = null
 
         private val _globalUiState = MutableStateFlow(UiState())
         val globalUiState = _globalUiState.asStateFlow()
@@ -62,19 +75,20 @@ class HeartRateService : Service() {
 
         /**
          * HyperOS 公平运行内存适配：系统预警时释放内存
-         * 由 MemoryReceiver 调用
+         * 由 MemoryReceiver 调用（HandlerThread 线程）
+         * 必须切到主线程清理数据源，避免与主线程的 history 读写竞争
          */
         fun releaseMemory() {
             Log.w(TAG, "releaseMemory: 系统内存预警，释放缓存")
-            // 清除所有设备的心率历史数据（最大的内存消耗）
-            _globalUiState.update { state ->
-                state.copy(
-                    devices = state.devices.mapValues { (_, device) ->
-                        device.copy(heartRateHistory = emptyList())
+            instance?.let { svc ->
+                svc.serviceScope.launch {
+                    svc.deviceStates.values.forEach { ds ->
+                        ds.heartRateHistory.clear()
+                        ds.dirty = true
                     }
-                )
+                    svc.emitState()   // 立即发射空历史；emitState 会重置 hrDirty
+                }
             }
-            // 建议 GC 回收
             Runtime.getRuntime().gc()
             Log.i(TAG, "releaseMemory: 已释放心率历史数据并触发 GC")
         }
@@ -83,6 +97,7 @@ class HeartRateService : Service() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "服务 onCreate")
+        instance = this
         createNotificationChannel()
         try {
             startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.notif_service_started)))
@@ -97,14 +112,21 @@ class HeartRateService : Service() {
             onDeviceConnected = { addr ->
                 // BLE 线程 → 切回主线程更新 UI 状态
                 serviceScope.launch {
-                    deviceStates[addr]?.isConnected = true
-                    emitState()
+                    deviceStates[addr]?.let {
+                        it.isConnected = true
+                        it.dirty = true
+                    }
+                    emitState()   // 即时，不走节流
                 }
             },
             onDeviceDisconnected = { addr ->
                 serviceScope.launch {
-                    deviceStates[addr]?.isConnected = false
-                    emitState()
+                    deviceStates[addr]?.let { ds ->
+                        ds.isConnected = false
+                        ds.heartRateHistory.clear()   // 立即释放 ≤300 点内存（保留条目可重连）
+                        ds.dirty = true
+                    }
+                    emitState()   // 即时，不走节流
                 }
             },
             onHeartRateReceived = { addr, hr ->
@@ -112,26 +134,45 @@ class HeartRateService : Service() {
                 if (isRecording) {
                     csvRecorder.onHeartRate(addr, hr)
                 }
-                // 切回主线程更新业务状态 & UI
+                // 切回主线程更新业务状态 & UI（节流合并发射）
                 serviceScope.launch {
-                    deviceStates[addr]?.heartRate = hr
-                    if (isRecording) {
-                        val history = deviceStates[addr]?.heartRateHistory ?: mutableListOf()
-                        history.add(hr)
-                        if (history.size > 300) history.removeAt(0)
+                    deviceStates[addr]?.let { ds ->
+                        ds.heartRate = hr
+                        ds.dirty = true
+                        if (isRecording) {
+                            ds.heartRateHistory.addLast(hr)
+                            if (ds.heartRateHistory.size > HISTORY_MAX) {
+                                ds.heartRateHistory.removeFirst()   // ArrayDeque O(1)
+                            }
+                        }
                     }
-                    emitState()
+                    markHrDirty()
                 }
             },
             onBatteryLevelReceived = { addr, level ->
                 serviceScope.launch {
-                    deviceStates[addr]?.batteryLevel = level
-                    emitState()
+                    deviceStates[addr]?.let {
+                        it.batteryLevel = level
+                        it.dirty = true
+                    }
+                    // 录制中：电量读数同步给 CsvRecorder（落库去重交给 5s 强刷/stop）
+                    if (isRecording) {
+                        csvRecorder.recordBattery(addr, level)
+                    }
+                    emitState()   // 电池事件稀少，保持即时
                 }
             }
         )
 
         csvRecorder = CsvRecorder(this)
+
+        // 心率状态合并节流：≤120ms 发射一次（仅心率走节流，其余事件即时）
+        serviceScope.launch {
+            while (isActive) {
+                delay(THROTTLE_MS)
+                if (hrDirty) emitState()
+            }
+        }
 
         serviceScope.launch {
             while (isActive) {
@@ -141,6 +182,7 @@ class HeartRateService : Service() {
                     deviceStates.remove(it)
                     connectionOrder.remove(it)
                     deviceColors.remove(it)
+                    uiCache.remove(it)
                 }
                 emitState()
             }
@@ -160,8 +202,11 @@ class HeartRateService : Service() {
             "DISCONNECT_DEVICE" -> {
                 val address = intent.getStringExtra("device_address") ?: return START_STICKY
                 connector.disconnect(address)
-                deviceStates[address]?.isConnected = false
-                deviceStates[address]?.heartRateHistory?.clear()
+                deviceStates[address]?.let { ds ->
+                    ds.isConnected = false
+                    ds.heartRateHistory.clear()
+                    ds.dirty = true
+                }
                 emitState()
             }
             "STOP_SERVICE" -> stopSelf()
@@ -216,18 +261,21 @@ class HeartRateService : Service() {
 
     private fun startRecording() {
         if (isRecording) return
-        deviceStates.values.forEach { it.heartRateHistory.clear() }
+        deviceStates.values.forEach { it.heartRateHistory.clear(); it.dirty = true }
         val connectedDevices = deviceStates.filter { it.value.isConnected }
         val connectedAddresses = connectedDevices.keys.toList()
         val addressToName = connectedDevices.mapValues { (_, ds) ->
             ds.device.name ?: ds.device.address
         }
+        // 起始电量：录制开始时各连接设备当前已知电量（可能为 null = 设备无电量服务）
+        val initialBattery = connectedDevices.mapValues { (_, ds) -> ds.batteryLevel }
         serviceScope.launch {
             if (isRecording) return@launch
             try {
-                csvRecorder.start(connectedAddresses, addressToName)
-                // 文件已创建 & 表头已写入，安全标记录制开始
+                csvRecorder.start(connectedAddresses, addressToName, initialBattery)
+                // 会话已创建，安全标记录制开始
                 isRecording = true
+                startBatteryRefreshLoop()
                 updateNotification(getString(R.string.notif_recording))
             } catch (e: Exception) {
                 Log.e(TAG, "CSV 录制启动失败", e)
@@ -241,27 +289,66 @@ class HeartRateService : Service() {
     private fun stopRecording() {
         if (!isRecording) return
         serviceScope.launch {
-            // suspend — 等待 IO 线程完成文件 flush/close，不阻塞主线程
+            // suspend — 等待 IO 线程完成最后落库（含结束电量 + 最终汇总），不阻塞主线程
             csvRecorder.stop()
-            // 文件已落盘，切回主线程清理状态
-            deviceStates.values.forEach { it.heartRateHistory.clear() }
+            stopBatteryRefreshLoop()
+            // 数据已落库，切回主线程清理状态
+            deviceStates.values.forEach { it.heartRateHistory.clear(); it.dirty = true }
             isRecording = false
             updateNotification(getString(R.string.notif_record_stopped))
             emitState()
         }
     }
 
+    // ── 录制中周期电量刷新：每 30 秒重读一次连接设备电量 ──
+    private var batteryRefreshJob: Job? = null
+
+    private fun startBatteryRefreshLoop() {
+        batteryRefreshJob?.cancel()
+        batteryRefreshJob = serviceScope.launch {
+            while (isActive) {
+                delay(30_000)
+                if (isRecording) {
+                    val addresses = deviceStates.filter { it.value.isConnected }.keys.toList()
+                    addresses.forEach { addr ->
+                        bleScope.launch { connector.refreshBattery(addr) }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopBatteryRefreshLoop() {
+        batteryRefreshJob?.cancel()
+        batteryRefreshJob = null
+    }
+
+    /** 标记有待发射的心率状态（节流循环据此触发 emitState） */
+    private fun markHrDirty() {
+        hrDirty = true
+    }
+
+    /**
+     * 增量快照：只对 dirty 设备做 history.toList() 拷贝，其余复用 uiCache 中的历史引用。
+     * 仅主线程调用。
+     */
     private fun emitState() {
+        hrDirty = false
         val uiDevices = deviceStates.mapValues { (addr, ds) ->
+            val prev = uiCache[addr]
+            val history = if (ds.dirty) ds.heartRateHistory.toList()
+            else prev?.heartRateHistory ?: emptyList()
+            ds.dirty = false
             UiDeviceState(
                 address = addr,
                 name = ds.device.name ?: addr,
                 isConnected = ds.isConnected,
                 heartRate = ds.heartRate,
                 batteryLevel = ds.batteryLevel,
-                heartRateHistory = ds.heartRateHistory.toList()
-            )
+                heartRateHistory = history
+            ).also { uiCache[addr] = it }
         }
+        uiCache.keys.retainAll(deviceStates.keys)
         _globalUiState.update {
             it.copy(
                 devices = uiDevices,
@@ -322,6 +409,7 @@ class HeartRateService : Service() {
 
     override fun onDestroy() {
         Log.d(TAG, "服务 onDestroy")
+        if (instance === this) instance = null
         scanTimeoutJob?.cancel()
         scanner?.let {
             it.stopScan()
@@ -329,10 +417,11 @@ class HeartRateService : Service() {
         }
         if (isRecording) {
             // onDestroy 在主线程，csvRecorder.stop() 是 suspend
-            // 用 runBlocking 等待文件关闭（onDestroy 是生命周期终结，短暂阻塞可接受）
+            // 用 runBlocking 等待数据落库（onDestroy 是生命周期终结，短暂阻塞可接受）
             runBlocking { csvRecorder.stop() }
             isRecording = false
         }
+        stopBatteryRefreshLoop()
         bleScope.cancel()
         serviceScope.cancel()
         connector.disconnectAll()

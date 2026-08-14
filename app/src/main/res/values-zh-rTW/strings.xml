@@ -11,18 +11,23 @@
     <string name="btn_confirm">確定</string>
 
     <!-- LeftPanel -->
-    <string name="btn_scanning">搜尋中…</string>
-    <string name="btn_recording">記錄中…</string>
-    <string name="btn_search">搜尋</string>
+    <string name="cd_search">搜尋</string>
+    <string name="cd_record">開始記錄</string>
+    <string name="cd_record_stop">停止記錄</string>
+    <string name="cd_history">查看歷史</string>
+    <string name="tooltip_search">掃描心率裝置</string>
+    <string name="tooltip_record_start">開始記錄</string>
+    <string name="tooltip_record_stop">停止記錄</string>
+    <string name="tooltip_history">查看歷史記錄</string>
 
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">暫無裝置連線</string>
-    <string name="chart_guide_search">點擊「搜尋」掃描心率裝置</string>
+    <string name="chart_guide_search">點擊搜尋圖示掃描心率裝置</string>
     <string name="chart_guide_connect">點擊藍牙圖示連線，長按斷開</string>
-    <string name="chart_guide_record">長按「搜尋」1.5秒開始記錄</string>
-    <string name="chart_guide_stop">記錄中長按「搜尋」3秒停止</string>
-    <string name="chart_guide_history">無裝置時長按「搜尋」1.5秒查看歷史</string>
-    <string name="chart_guide_share">雙擊歷史檔案分享，長按刪除</string>
+    <string name="chart_guide_record">點擊記錄圖示開始記錄</string>
+    <string name="chart_guide_stop">記錄中長按記錄圖示3秒停止</string>
+    <string name="chart_guide_history">點擊歷史圖示查看歷史記錄</string>
+    <string name="chart_guide_share">雙擊歷史記錄分享，長按刪除</string>
     <string name="chart_waiting">等待記錄…</string>
 
     <!-- CsvChartScreen -->
@@ -49,7 +54,7 @@
 
     <!-- HistoryScreen -->
     <string name="history_empty">暫無歷史記錄</string>
-    <string name="history_file_size">%d KB</string>
+    <string name="history_summary">%1$d 筆樣本 · %2$s</string>
     <string name="history_delete_title">刪除檔案？</string>
     <string name="history_delete_message">確定要刪除這條歷史記錄嗎？</string>
 </resources>

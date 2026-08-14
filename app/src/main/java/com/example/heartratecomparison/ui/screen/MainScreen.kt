@@ -20,6 +20,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,7 +35,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import com.example.heartratecomparison.R
 import com.example.heartratecomparison.bluetooth.HeartRateService
 import com.example.heartratecomparison.ui.chart.MultiHeartRateChart
@@ -65,7 +65,8 @@ fun MainScreen() {
     val uiState by HeartRateService.globalUiState.collectAsState()
     val deviceStates = uiState.devices
     val connectionOrder = uiState.connectionOrder
-    val deviceColors = remember(uiState.deviceColors) {
+    // key 用设备地址集合（结构性相等）：设备集合不变则命中缓存，避免每次心率重建整个 color map
+    val deviceColors = remember(deviceStates.keys) {
         val map = mutableMapOf<String, Color>()
         uiState.deviceColors.forEach { (addr, index) ->
             map[addr] = colorPool[index % colorPool.size]
@@ -88,8 +89,9 @@ fun MainScreen() {
         context.startService(intent)
     }
 
+    // Android 12+ 的 BLE 扫描不再需要定位权限；Android 8~11 仍需 FINE_LOCATION
     val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION)
+        arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
     } else {
         arrayOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN, Manifest.permission.ACCESS_FINE_LOCATION)
     }
@@ -223,24 +225,17 @@ fun MainScreen() {
             val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
             val isTablet = (LocalConfiguration.current.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK) >= Configuration.SCREENLAYOUT_SIZE_LARGE
 
-            // 横屏隐藏状态栏和导航栏
-            LaunchedEffect(isLandscape) {
-                val window = activity?.window ?: return@LaunchedEffect
-                val controller = WindowInsetsControllerCompat(window, window.decorView)
-                if (isLandscape) {
-                    controller.hide(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
-                    controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                } else {
-                    controller.show(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
-                }
-            }
-
-            // 主内容
+            // 主内容：背景铺满全屏（edge-to-edge），只避左右挖孔/侧边手势条；
+            // 横屏不隐藏系统栏（状态栏/小白条保持可见），仅数据查看页（CsvChartScreen）进入时隐藏；
+            // 横屏布局避开全部系统栏区域（不允许内容侵入状态栏/小白条），竖屏保持原 edge-to-edge 行为
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
-                    .windowInsetsPadding(WindowInsets.systemBars)
+                    .windowInsetsPadding(
+                        if (isLandscape) WindowInsets.safeDrawing
+                        else WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
+                    )
                     .padding(7.dp)
             ) {
                 if (isLandscape) {
@@ -279,7 +274,9 @@ fun MainScreen() {
                     }
                 } else {
                     // 竖屏：上（搜索+设备）下（图表）1:1
+                    // 顶部/底部 inset 占位置于 weight 结构外，数学等效原全边 padding，不压缩权重区域
                     Column(modifier = Modifier.fillMaxSize()) {
+                        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.safeDrawing))
                         LeftPanel(
                             modifier = Modifier.fillMaxWidth().weight(1f),
                             isScanning = isScanning,
@@ -308,6 +305,7 @@ fun MainScreen() {
                                 deviceColors = deviceColors
                             )
                         }
+                        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.safeDrawing))
                     }
                 }
             }

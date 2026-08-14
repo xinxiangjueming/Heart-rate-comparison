@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+# WorkBuddy 项目数据（记忆/计划等，不入库）
+.workbuddy/
+# IDE 检查配置
+.idea/inspectionProfiles/
+# APK 构建产物
+app/release/

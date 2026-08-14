@@ -38,36 +38,48 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.heartratecomparison.data.HeartRateDatabase
+import com.example.heartratecomparison.data.RecordDao
 import com.example.heartratecomparison.ui.theme.ChartColors
 import com.example.heartratecomparison.ui.theme.LocalChartAxis
 import com.example.heartratecomparison.ui.theme.LocalChartGrid
-import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 private val chartColors = ChartColors
 
 @Composable
-fun CsvChartScreen(file: File, onBack: () -> Unit) {
+fun CsvChartScreen(
+    sessionId: Long,
+    onBack: () -> Unit,
+    /** 全屏数据查看时 true：锁定横屏 + 隐藏系统栏；大屏分栏（历史列表可见）时为 false，保持系统栏 */
+    immersive: Boolean = true
+) {
     val context = LocalContext.current
     val activity = context as? Activity
     val isDark = isSystemInDarkTheme()
     val density = LocalDensity.current
 
-    // 进入时锁定横屏、隐藏状态栏，退出时恢复
+    // 全屏数据查看时锁定横屏、隐藏状态栏，退出时恢复；分栏模式不做任何系统栏/方向改动
     DisposableEffect(Unit) {
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        val window = activity?.window
-        if (window != null) {
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-            val controller = WindowInsetsControllerCompat(window, window.decorView)
-            controller.hide(WindowInsetsCompat.Type.systemBars())
-            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (immersive) {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            val window = activity?.window
+            if (window != null) {
+                WindowCompat.setDecorFitsSystemWindows(window, false)
+                val controller = WindowInsetsControllerCompat(window, window.decorView)
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+                controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
         }
         onDispose {
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            val win = activity?.window
-            if (win != null) {
-                val ctrl = WindowInsetsControllerCompat(win, win.decorView)
-                ctrl.show(WindowInsetsCompat.Type.systemBars())
+            if (immersive) {
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                val win = activity?.window
+                if (win != null) {
+                    val ctrl = WindowInsetsControllerCompat(win, win.decorView)
+                    ctrl.show(WindowInsetsCompat.Type.systemBars())
+                }
             }
         }
     }
@@ -76,9 +88,15 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
 
     var parsed by remember { mutableStateOf<CsvParsed?>(null) }
     var isLoading by remember { mutableStateOf(true) }
-    LaunchedEffect(file) {
+    var titleText by remember { mutableStateOf("") }
+    LaunchedEffect(sessionId) {
         isLoading = true
-        parsed = withContext(Dispatchers.IO) { parseCsv(file) }
+        val dao = HeartRateDatabase.getInstance(context).recordDao()
+        val session = dao.getSession(sessionId)
+        titleText = session?.let {
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(it.startTime))
+        } ?: ""
+        parsed = withContext(Dispatchers.IO) { buildParsedFromRoom(dao, sessionId) }
         isLoading = false
     }
     var hiddenDevices by remember { mutableStateOf(setOf<Int>()) }
@@ -107,7 +125,7 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
                     )
                 }
                 Text(
-                    text = file.nameWithoutExtension.removePrefix("heart_"),
+                    text = titleText,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 12.dp)
@@ -460,62 +478,46 @@ fun CsvChartScreen(file: File, onBack: () -> Unit) {
 private data class CsvColumn(val name: String, val values: List<Float>)
 private class CsvParsed(val columns: List<CsvColumn>, val globalMin: Float, val globalMax: Float, val times: List<Float>)
 
-private fun parseTimeToSeconds(timeStr: String): Float? {
-    return try {
-        val parts = timeStr.split(":")
-        if (parts.size == 3) {
-            parts[0].toInt() * 3600 + parts[1].toInt() * 60 + parts[2].toFloat()
-        } else if (parts.size == 2) {
-            parts[0].toInt() * 60 + parts[1].toFloat()
-        } else {
-            timeStr.toFloatOrNull()
-        }
-    } catch (e: Exception) {
-        null
-    }
-}
+/**
+ * 从 Room 数据构建图表数据。
+ * 按秒分组还原为"一行多列"结构（与历史 CSV 相同的语义）；某设备某秒缺失时沿用上一秒值，
+ * 完全无数据的设备不显示为曲线。
+ */
+private suspend fun buildParsedFromRoom(dao: RecordDao, sessionId: Long): CsvParsed? {
+    val session = dao.getSession(sessionId) ?: return null
+    val samples = dao.getSamples(sessionId)
+    if (samples.isEmpty()) return null
 
-private fun parseCsv(file: File): CsvParsed? {
-    return try {
-        val lines = file.readLines().filter { it.isNotBlank() }
-        if (lines.size < 2) return null
+    val order = session.deviceOrderList()
+    val bySecond = samples.groupBy { it.second }.toSortedMap()
+    val baseSecond = bySecond.firstKey()
+    val times = bySecond.keys.map { (it - baseSecond).toFloat() }
 
-        val header = lines[0].split(",").map { it.trim() }
-        if (header.size < 2) return null
-
-        val dataColumns = header.size - 1
-        val columns = Array<MutableList<Float>>(dataColumns) { mutableListOf() }
-        val times = mutableListOf<Float>()
-
-        for (i in 1 until lines.size) {
-            val parts = lines[i].split(",").map { it.trim() }
-            // 提取第一列时间值（HH:mm:ss 格式转为秒数）
-            parts.getOrNull(0)?.let { timeStr ->
-                val secs = parseTimeToSeconds(timeStr)
-                if (secs != null) times.add(secs)
+    val columns = order.mapNotNull { addr ->
+        val values = mutableListOf<Float>()
+        var last: Float? = null
+        var hasData = false
+        for ((_, list) in bySecond) {
+            val hr = list.firstOrNull { it.deviceAddress == addr }?.heartRate
+            if (hr != null) {
+                last = hr.toFloat()
+                hasData = true
             }
-            for (col in 0 until dataColumns) {
-                val value = parts.getOrNull(col + 1)?.toFloatOrNull()
-                if (value != null) {
-                    columns[col].add(value)
-                }
-            }
+            values.add(last ?: 0f)
         }
-
-        val csvColumns = columns.mapIndexed { index, values ->
-            CsvColumn(header[index + 1], values)
-        }.filter { it.values.isNotEmpty() }
-
-        val allValues = csvColumns.flatMap { it.values }
-        if (allValues.isEmpty()) return null
-
-        CsvParsed(
-            columns = csvColumns,
-            globalMin = allValues.min(),
-            globalMax = allValues.max(),
-            times = times
-        )
-    } catch (e: Exception) {
-        null
+        if (!hasData) return@mapNotNull null
+        CsvColumn(session.displayNameFor(addr), values)
     }
+    if (columns.isEmpty()) return null
+
+    val allValues = columns.flatMap { it.values }
+    val positive = allValues.filter { it > 0f }
+    if (positive.isEmpty()) return null
+
+    return CsvParsed(
+        columns = columns,
+        globalMin = positive.min(),
+        globalMax = allValues.max(),
+        times = times
+    )
 }

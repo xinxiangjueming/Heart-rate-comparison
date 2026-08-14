@@ -11,17 +11,22 @@
     <string name="btn_confirm">Confirmer</string>
 
     <!-- LeftPanel -->
-    <string name="btn_scanning">Recherche…</string>
-    <string name="btn_recording">Enregistrement…</string>
-    <string name="btn_search">Rechercher</string>
+    <string name="cd_search">Rechercher</string>
+    <string name="cd_record">Démarrer l\'enregistrement</string>
+    <string name="cd_record_stop">Arrêter l\'enregistrement</string>
+    <string name="cd_history">Voir l\'historique</string>
+    <string name="tooltip_search">Scanner les appareils de fréquence cardiaque</string>
+    <string name="tooltip_record_start">Démarrer l\'enregistrement</string>
+    <string name="tooltip_record_stop">Arrêter l\'enregistrement</string>
+    <string name="tooltip_history">Voir l\'historique</string>
 
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">Aucun appareil connecté</string>
-    <string name="chart_guide_search">Appuyez sur « Rechercher » pour scanner les appareils</string>
+    <string name="chart_guide_search">Appuyez sur l\'icône de recherche pour scanner les appareils</string>
     <string name="chart_guide_connect">Appuyez sur l\'icône Bluetooth pour connecter, maintenez pour déconnecter</string>
-    <string name="chart_guide_record">Maintenez « Rechercher » 1,5 s pour démarrer l\'enregistrement</string>
-    <string name="chart_guide_stop">Maintenez « Rechercher » 3 s pour arrêter l\'enregistrement</string>
-    <string name="chart_guide_history">Maintenez « Rechercher » 1,5 s pour voir l\'historique (sans appareil)</string>
+    <string name="chart_guide_record">Appuyez sur l\'icône d\'enregistrement pour démarrer</string>
+    <string name="chart_guide_stop">Maintenez l\'icône d\'enregistrement 3 s pour arrêter</string>
+    <string name="chart_guide_history">Appuyez sur l\'icône d\'historique pour voir l\'historique</string>
     <string name="chart_guide_share">Double-appui pour partager, appui long pour supprimer</string>
     <string name="chart_waiting">En attente d\'enregistrement…</string>
 
@@ -44,7 +49,7 @@
 
     <!-- HistoryScreen -->
     <string name="history_empty">Aucun historique</string>
-    <string name="history_file_size">%d Ko</string>
+    <string name="history_summary">%1$d échantillons · %2$s</string>
     <string name="history_delete_title">Supprimer le fichier ?</string>
     <string name="history_delete_message">Voulez-vous vraiment supprimer cet enregistrement ?</string>
 

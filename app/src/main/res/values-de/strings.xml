@@ -11,17 +11,22 @@
     <string name="btn_confirm">Bestätigen</string>
 
     <!-- LeftPanel -->
-    <string name="btn_scanning">Suche…</string>
-    <string name="btn_recording">Aufzeichnung…</string>
-    <string name="btn_search">Suchen</string>
+    <string name="cd_search">Suchen</string>
+    <string name="cd_record">Aufzeichnung starten</string>
+    <string name="cd_record_stop">Aufzeichnung stoppen</string>
+    <string name="cd_history">Verlauf anzeigen</string>
+    <string name="tooltip_search">Herzfrequenzgeräte scannen</string>
+    <string name="tooltip_record_start">Aufzeichnung starten</string>
+    <string name="tooltip_record_stop">Aufzeichnung stoppen</string>
+    <string name="tooltip_history">Verlauf anzeigen</string>
 
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">Kein Gerät verbunden</string>
-    <string name="chart_guide_search">Tippen Sie auf „Suchen", um Herzfrequenzgeräte zu scannen</string>
+    <string name="chart_guide_search">Tippen Sie auf das Suchsymbol, um Herzfrequenzgeräte zu scannen</string>
     <string name="chart_guide_connect">Tippen Sie auf das Bluetooth-Symbol zum Verbinden, langes Drücken zum Trennen</string>
-    <string name="chart_guide_record">„Suchen" 1,5 s gedrückt halten zum Starten</string>
-    <string name="chart_guide_stop">„Suchen" 3 s gedrückt halten zum Stoppen</string>
-    <string name="chart_guide_history">„Suchen" 1,5 s gedrückt halten für Verlauf (ohne Gerät)</string>
+    <string name="chart_guide_record">Tippen Sie auf das Aufzeichnungssymbol zum Starten</string>
+    <string name="chart_guide_stop">Aufzeichnungssymbol 3 s gedrückt halten zum Stoppen</string>
+    <string name="chart_guide_history">Tippen Sie auf das Verlaufssymbol zum Anzeigen</string>
     <string name="chart_guide_share">Doppeltippen zum Teilen, langes Drücken zum Löschen</string>
     <string name="chart_waiting">Warte auf Aufzeichnung…</string>
 
@@ -44,7 +49,7 @@
 
     <!-- HistoryScreen -->
     <string name="history_empty">Kein Verlauf</string>
-    <string name="history_file_size">%d KB</string>
+    <string name="history_summary">%1$d Messwerte · %2$s</string>
     <string name="history_delete_title">Datei löschen?</string>
     <string name="history_delete_message">Möchten Sie diesen Eintrag wirklich löschen?</string>
 
