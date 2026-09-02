@@ -33,11 +33,13 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.heartratecomparison.R
 import com.example.heartratecomparison.data.HeartRateDatabase
 import com.example.heartratecomparison.data.RecordDao
 import com.example.heartratecomparison.ui.theme.ChartColors
@@ -120,7 +122,7 @@ fun CsvChartScreen(
                 IconButton(onClick = onBack) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "返回",
+                        contentDescription = stringResource(R.string.btn_back),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -166,7 +168,10 @@ fun CsvChartScreen(
             val parsedData = parsed
             if (parsedData == null || parsedData.columns.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                    Text("无法解析 CSV 数据", color = MaterialTheme.colorScheme.onSurface)
+                    Text(
+                        text = stringResource(R.string.chart_parse_failed),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             } else {
                 val yMin = parsedData.globalMin * 0.95f

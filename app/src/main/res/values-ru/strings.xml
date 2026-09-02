@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Сравнение пульса</string>
+
+    <!-- MainScreen -->
+    <string name="dialog_exit_title">Остановить запись?</string>
+    <string name="dialog_exit_message">Идёт запись. Вы уверены, что хотите остановить запись и выйти?</string>
+    <string name="btn_finish">Завершить</string>
+    <string name="btn_cancel">Отмена</string>
+    <string name="btn_back">Назад</string>
+    <string name="btn_confirm">Подтвердить</string>
+
+    <!-- LeftPanel -->
+    <string name="cd_search">Поиск</string>
+    <string name="cd_record">Начать запись</string>
+    <string name="cd_record_stop">Остановить запись</string>
+    <string name="cd_history">История</string>
+    <string name="tooltip_search">Поиск устройств измерения пульса</string>
+    <string name="tooltip_record_start">Начать запись</string>
+    <string name="tooltip_record_stop">Остановить запись</string>
+    <string name="tooltip_history">Просмотр записей истории</string>
+
+    <!-- MultiHeartRateChart -->
+    <string name="chart_no_device">Устройство не подключено</string>
+    <string name="chart_guide_search">Нажмите значок поиска для сканирования устройств измерения пульса</string>
+    <string name="chart_guide_connect">Нажмите значок Bluetooth для подключения, долгое нажатие — для отключения</string>
+    <string name="chart_guide_record">Нажмите значок записи, чтобы начать запись</string>
+    <string name="chart_guide_stop">Удерживайте значок записи 3 с, чтобы остановить запись</string>
+    <string name="chart_guide_history">Нажмите значок истории, чтобы просмотреть историю</string>
+    <string name="chart_guide_share">Нажмите на значок, чтобы поделиться, долгое нажатие на элемент списка — удалить</string>
+    <string name="chart_waiting">Ожидание записи…</string>
+
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">Масштабируйте ось X щипком, прокручивайте свайпом</string>
+    <string name="chart_reset_guide">Удерживайте 3 с, чтобы сбросить масштаб</string>
+    <string name="chart_legend_guide">Нажмите легенду, чтобы показать или скрыть кривые</string>
+    <string name="chart_parse_failed">Не удалось разобрать данные CSV</string>
+
+    <!-- DeviceItem -->
+    <string name="desc_bluetooth">Bluetooth</string>
+    <string name="label_battery">Заряд</string>
+    <string name="label_heart_rate">ЧСС</string>
+
+    <!-- HeartRateService -->
+    <string name="notif_service_started">Служба запущена</string>
+    <string name="notif_record_failed">Ошибка записи</string>
+    <string name="notif_recording">Запись пульса…</string>
+    <string name="notif_record_stopped">Запись остановлена</string>
+    <string name="notif_action_stop">Остановить службу</string>
+    <string name="notif_channel_name">Служба записи пульса</string>
+    <string name="notif_channel_desc">Фоновая запись данных пульса</string>
+
+    <!-- CsvRecorder -->
+    <string name="error_file_create_failed">Не удалось создать файл</string>
+
+    <!-- HistoryScreen -->
+    <string name="desc_share">Поделиться</string>
+    <string name="history_empty">История пуста</string>
+    <string name="history_summary">%1$d отсчётов · %2$s</string>
+    <string name="history_delete_title">Удалить запись?</string>
+    <string name="csv_import_loading">Импорт CSV…</string>
+    <string name="csv_import_unsupported">Файл не распознан. Поддерживаются только CSV, экспортированные этим приложением.</string>
+</resources>

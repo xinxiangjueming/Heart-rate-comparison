@@ -12,7 +12,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.pow
@@ -85,19 +84,25 @@ private fun exp(x: Float): Float = kotlin.math.exp(x.toDouble()).toFloat()
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
     val density = LocalDensity.current
-    val configuration = LocalConfiguration.current
     val primary = MaterialTheme.colorScheme.primary
     val bg = MaterialTheme.colorScheme.background
 
-    val screenW = with(density) { configuration.screenWidthDp.dp.toPx() }
-    val screenH = with(density) { configuration.screenHeightDp.dp.toPx() }
-    val heartScale = screenW.coerceAtMost(screenH) * 0.0065f
-    val heartCx = screenW / 2f
-    val heartCy = screenH / 2f
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bg)
+    ) {
+        // 使用真实窗口/组合约束尺寸，而非 LocalConfiguration：自由窗口/分屏下后者返回的是
+        // 整块设备屏幕的尺寸，会使心形中心被算到窗口之外，从而偏移到角落并脱离可视区
+        val screenW = with(density) { maxWidth.toPx() }
+        val screenH = with(density) { maxHeight.toPx() }
+        val heartScale = screenW.coerceAtMost(screenH) * 0.0065f
+        val heartCx = screenW / 2f
+        val heartCy = screenH / 2f
 
-    val particles = remember {
-        generateParticles(screenW, screenH, heartCx, heartCy, heartScale)
-    }
+        val particles = remember(screenW.toInt(), screenH.toInt()) {
+            generateParticles(screenW, screenH, heartCx, heartCy, heartScale)
+        }
 
     val progress = remember { Animatable(0f) }
     val smoothEasing = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
@@ -240,6 +245,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                 )
             }
         }
+    }
     }
 }
 

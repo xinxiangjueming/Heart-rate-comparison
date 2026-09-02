@@ -27,8 +27,14 @@
     <string name="chart_guide_record">記録アイコンをタップして記録開始</string>
     <string name="chart_guide_stop">記録中に記録アイコンを3秒長押しで停止</string>
     <string name="chart_guide_history">履歴アイコンをタップして履歴を表示</string>
-    <string name="chart_guide_share">記録をダブルタップで共有、長押しで削除</string>
+    <string name="chart_guide_share">アイコンをタップして共有、リストを長押しで削除</string>
     <string name="chart_waiting">記録待機中…</string>
+
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">二本指でX軸を拡大・縮小、一本指でスクロール</string>
+    <string name="chart_reset_guide">3秒長押しで拡大・縮小をリセット</string>
+    <string name="chart_legend_guide">凡例をタップして曲線の表示・非表示</string>
+    <string name="chart_parse_failed">CSV データを解析できません</string>
 
     <!-- DeviceItem -->
     <string name="desc_bluetooth">Bluetooth</string>
@@ -48,13 +54,10 @@
     <string name="error_file_create_failed">ファイル作成失敗</string>
 
     <!-- HistoryScreen -->
+    <string name="desc_share">シェア</string>
     <string name="history_empty">履歴なし</string>
     <string name="history_summary">サンプル %1$d 件 · %2$s</string>
-    <string name="history_delete_title">ファイル削除？</string>
-    <string name="history_delete_message">この記録を削除しますか？</string>
-
-    <!-- CsvChartScreen -->
-    <string name="chart_zoom_guide">二本指でX軸を拡大・縮小、一本指でスクロール</string>
-    <string name="chart_reset_guide">3秒長押しで拡大・縮小をリセット</string>
-    <string name="chart_legend_guide">凡例をタップして曲線の表示・非表示</string>
+    <string name="history_delete_title">記録を削除？</string>
+    <string name="csv_import_loading">CSV を読み込み中…</string>
+    <string name="csv_import_unsupported">このファイルは認識できません。本アプリでエクスポートした CSV のみ対応しています。</string>
 </resources>

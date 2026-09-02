@@ -19,3 +19,5 @@ local.properties
 .idea/inspectionProfiles/
 # APK 构建产物
 app/release/
+/localization_tools/check_keys.py
+/localization_tools/normalize_order.py

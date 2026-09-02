@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hartslagvergelijking</string>
+
+    <!-- MainScreen -->
+    <string name="dialog_exit_title">Opname stoppen?</string>
+    <string name="dialog_exit_message">Opname bezig. Weet je zeker dat je wilt stoppen en afsluiten?</string>
+    <string name="btn_finish">Voltooien</string>
+    <string name="btn_cancel">Annuleren</string>
+    <string name="btn_back">Terug</string>
+    <string name="btn_confirm">Bevestigen</string>
+
+    <!-- LeftPanel -->
+    <string name="cd_search">Zoeken</string>
+    <string name="cd_record">Opname starten</string>
+    <string name="cd_record_stop">Opname stoppen</string>
+    <string name="cd_history">Geschiedenis bekijken</string>
+    <string name="tooltip_search">Scannen naar hartslagapparaten</string>
+    <string name="tooltip_record_start">Opname starten</string>
+    <string name="tooltip_record_stop">Opname stoppen</string>
+    <string name="tooltip_history">Geschiedenisgegevens bekijken</string>
+
+    <!-- MultiHeartRateChart -->
+    <string name="chart_no_device">Geen apparaat verbonden</string>
+    <string name="chart_guide_search">Tik op het zoekpictogram om naar hartslagapparaten te scannen</string>
+    <string name="chart_guide_connect">Tik op het bluetoothpictogram om te verbinden, houd ingedrukt om te verbreken</string>
+    <string name="chart_guide_record">Tik op het opnamepictogram om de opname te starten</string>
+    <string name="chart_guide_stop">Houd het opnamepictogram 3 s ingedrukt om de opname te stoppen</string>
+    <string name="chart_guide_history">Tik op het geschiedenispictogram om de geschiedenis te bekijken</string>
+    <string name="chart_guide_share">Tik op het pictogram om te delen, houd een lijstitem ingedrukt om te verwijderen</string>
+    <string name="chart_waiting">Wachten op opname…</string>
+
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">Knijp om op de X-as te zoomen, veeg om te navigeren</string>
+    <string name="chart_reset_guide">Houd 3 s ingedrukt om de zoom te resetten</string>
+    <string name="chart_legend_guide">Tik op de legenda om curven weer te geven of te verbergen</string>
+    <string name="chart_parse_failed">Kan CSV-gegevens niet verwerken</string>
+
+    <!-- DeviceItem -->
+    <string name="desc_bluetooth">Bluetooth</string>
+    <string name="label_battery">Batterij</string>
+    <string name="label_heart_rate">HS</string>
+
+    <!-- HeartRateService -->
+    <string name="notif_service_started">Service gestart</string>
+    <string name="notif_record_failed">Opname mislukt</string>
+    <string name="notif_recording">Hartslag opnemen…</string>
+    <string name="notif_record_stopped">Opname gestopt</string>
+    <string name="notif_action_stop">Service stoppen</string>
+    <string name="notif_channel_name">Hartslagservice</string>
+    <string name="notif_channel_desc">Hartslaggegevens op de achtergrond opnemen</string>
+
+    <!-- CsvRecorder -->
+    <string name="error_file_create_failed">Kan bestand niet aanmaken</string>
+
+    <!-- HistoryScreen -->
+    <string name="desc_share">Delen</string>
+    <string name="history_empty">Geen geschiedenisgegevens</string>
+    <string name="history_summary">%1$d metingen · %2$s</string>
+    <string name="history_delete_title">Record verwijderen?</string>
+    <string name="csv_import_loading">CSV importeren…</string>
+    <string name="csv_import_unsupported">Bestand niet herkend. Alleen door deze app geëxporteerde CSV wordt ondersteund.</string>
+</resources>

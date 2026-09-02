@@ -27,8 +27,14 @@
     <string name="chart_guide_record">Appuyez sur l\'icône d\'enregistrement pour démarrer</string>
     <string name="chart_guide_stop">Maintenez l\'icône d\'enregistrement 3 s pour arrêter</string>
     <string name="chart_guide_history">Appuyez sur l\'icône d\'historique pour voir l\'historique</string>
-    <string name="chart_guide_share">Double-appui pour partager, appui long pour supprimer</string>
+    <string name="chart_guide_share">Appuyez sur l\'icône pour partager, appui long sur la liste pour supprimer</string>
     <string name="chart_waiting">En attente d\'enregistrement…</string>
+
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">Pincer pour zoomer sur l\'axe X, glisser pour naviguer</string>
+    <string name="chart_reset_guide">Appui long 3 s pour réinitialiser le zoom</string>
+    <string name="chart_legend_guide">Appuyez sur la légende pour afficher/masquer les courbes</string>
+    <string name="chart_parse_failed">Impossible de lire les données CSV</string>
 
     <!-- DeviceItem -->
     <string name="desc_bluetooth">Bluetooth</string>
@@ -48,13 +54,10 @@
     <string name="error_file_create_failed">Échec de la création du fichier</string>
 
     <!-- HistoryScreen -->
+    <string name="desc_share">Partager</string>
     <string name="history_empty">Aucun historique</string>
     <string name="history_summary">%1$d échantillons · %2$s</string>
-    <string name="history_delete_title">Supprimer le fichier ?</string>
-    <string name="history_delete_message">Voulez-vous vraiment supprimer cet enregistrement ?</string>
-
-    <!-- CsvChartScreen -->
-    <string name="chart_zoom_guide">Pincer pour zoomer sur l\'axe X, glisser pour naviguer</string>
-    <string name="chart_reset_guide">Appui long 3 s pour réinitialiser le zoom</string>
-    <string name="chart_legend_guide">Appuyez sur la légende pour afficher/masquer les courbes</string>
+    <string name="history_delete_title">Supprimer l\'enregistrement ?</string>
+    <string name="csv_import_loading">Import du CSV…</string>
+    <string name="csv_import_unsupported">Fichier non reconnu. Seuls les CSV exportés par cette application sont pris en charge.</string>
 </resources>

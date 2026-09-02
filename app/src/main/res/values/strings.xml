@@ -27,13 +27,14 @@
     <string name="chart_guide_record">点击记录图标开始记录</string>
     <string name="chart_guide_stop">记录中长按记录图标3秒停止</string>
     <string name="chart_guide_history">点击历史图标查看历史记录</string>
-    <string name="chart_guide_share">双击历史记录分享，长按删除</string>
+    <string name="chart_guide_share">点击图标分享记录，长按列表删除</string>
     <string name="chart_waiting">等待记录…</string>
 
     <!-- CsvChartScreen -->
     <string name="chart_zoom_guide">双指缩放X轴，单指滑动浏览</string>
     <string name="chart_reset_guide">长按3秒重置缩放</string>
     <string name="chart_legend_guide">点击图例显示/隐藏曲线</string>
+    <string name="chart_parse_failed">无法解析 CSV 数据</string>
 
     <!-- DeviceItem -->
     <string name="desc_bluetooth">蓝牙</string>
@@ -53,8 +54,10 @@
     <string name="error_file_create_failed">文件创建失败</string>
 
     <!-- HistoryScreen -->
+    <string name="desc_share">分享</string>
     <string name="history_empty">暂无历史记录</string>
     <string name="history_summary">%1$d 条样本 · 时长 %2$s</string>
-    <string name="history_delete_title">删除文件？</string>
-    <string name="history_delete_message">确定要删除这条历史记录吗？</string>
+    <string name="history_delete_title">删除记录？</string>
+    <string name="csv_import_loading">正在导入 CSV…</string>
+    <string name="csv_import_unsupported">无法识别该文件，仅支持本应用导出的 CSV</string>
 </resources>

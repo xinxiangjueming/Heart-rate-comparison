@@ -21,6 +21,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import com.example.heartratecomparison.ui.common.GlassAlertDialog
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -28,6 +30,7 @@ import com.example.heartratecomparison.R
 import com.example.heartratecomparison.data.CsvExporter
 import com.example.heartratecomparison.data.HeartRateDatabase
 import com.example.heartratecomparison.data.SessionWithCount
+import com.example.heartratecomparison.ui.icon.MiuixShareIcon
 import com.example.heartratecomparison.ui.theme.LocalDeviceCardBorder
 import java.text.SimpleDateFormat
 import java.util.*
@@ -65,7 +68,7 @@ fun HistoryScreen(onBack: () -> Unit) {
 
     val displayFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
 
-    // 双击分享：从 Room 动态生成 CSV 临时文件，通过 FileProvider 分享
+    // 分享：点击列表项右侧的分享图标，从 Room 动态生成 CSV 临时文件，通过 FileProvider 分享
     fun shareSession(sessionId: Long) {
         scope.launch {
             val file = withContext(Dispatchers.IO) { CsvExporter.exportSession(context, sessionId) }
@@ -92,31 +95,36 @@ fun HistoryScreen(onBack: () -> Unit) {
 
     // 删除确认弹窗
     if (sessionToDelete != null) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { sessionToDelete = null },
-            title = {
-                Text(
-                    text = stringResource(R.string.history_delete_title),
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-            },
-            text = {
-                Text(
-                    text = stringResource(R.string.history_delete_message),
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-            },
-            confirmButton = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            title = stringResource(R.string.history_delete_title),
+        ) {
+            Row(Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier.weight(1f).padding(end = 6.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    TextButton(onClick = { sessionToDelete = null }) {
-                        Text(stringResource(R.string.btn_cancel))
+                    TextButton(
+                        onClick = { sessionToDelete = null },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.textButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.btn_cancel),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
+                }
+                Box(
+                    modifier = Modifier.weight(1f).padding(start = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     Button(
                         onClick = {
                             val target = sessionToDelete
@@ -128,16 +136,20 @@ fun HistoryScreen(onBack: () -> Unit) {
                                 }
                             }
                         },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text(stringResource(R.string.btn_confirm))
+                        Text(
+                            text = stringResource(R.string.btn_confirm),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
-            },
-            shape = MaterialTheme.shapes.large,
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp
-        )
+            }
+        }
     }
 
     // 判断是否大屏横屏
@@ -154,9 +166,9 @@ fun HistoryScreen(onBack: () -> Unit) {
 
     // 背景铺满全屏（真沉浸）
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
             .padding(7.dp)
     ) {
@@ -256,7 +268,6 @@ private fun SessionListContent(
                         .clip(itemShape)
                         .combinedClickable(
                             onClick = { onSessionClick(item) },
-                            onDoubleClick = { onSessionShare(item) },
                             onLongClick = { onSessionLongClick(item) }
                         )
                         .border(1.dp, LocalDeviceCardBorder.current, itemShape),
@@ -282,6 +293,18 @@ private fun SessionListContent(
                                 text = stringResource(R.string.history_summary, item.sampleCount, duration),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                        // 分享入口：右侧图标，随行高垂直居中；点击弹出系统分享
+                        IconButton(
+                            onClick = { onSessionShare(item) },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = MiuixShareIcon,
+                                contentDescription = stringResource(R.string.desc_share),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }

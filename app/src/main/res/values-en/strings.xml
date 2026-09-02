@@ -27,13 +27,14 @@
     <string name="chart_guide_record">Tap the record icon to start recording</string>
     <string name="chart_guide_stop">Long press the record icon for 3s to stop recording</string>
     <string name="chart_guide_history">Tap the history icon to view history</string>
-    <string name="chart_guide_share">Double-tap a record to share, long press to delete</string>
+    <string name="chart_guide_share">Tap the icon to share a record, long press a list item to delete</string>
     <string name="chart_waiting">Waiting to record…</string>
 
     <!-- CsvChartScreen -->
     <string name="chart_zoom_guide">Pinch to zoom X-axis, swipe to pan</string>
     <string name="chart_reset_guide">Long press 3s to reset zoom</string>
     <string name="chart_legend_guide">Tap legend to show/hide curves</string>
+    <string name="chart_parse_failed">Unable to parse CSV data</string>
 
     <!-- DeviceItem -->
     <string name="desc_bluetooth">Bluetooth</string>
@@ -53,8 +54,10 @@
     <string name="error_file_create_failed">Failed to create file</string>
 
     <!-- HistoryScreen -->
+    <string name="desc_share">Share</string>
     <string name="history_empty">No history records</string>
     <string name="history_summary">%1$d samples · %2$s</string>
-    <string name="history_delete_title">Delete file?</string>
-    <string name="history_delete_message">Are you sure you want to delete this record?</string>
+    <string name="history_delete_title">Delete record?</string>
+    <string name="csv_import_loading">Importing CSV…</string>
+    <string name="csv_import_unsupported">Unrecognized file. Only CSV exported by this app is supported.</string>
 </resources>

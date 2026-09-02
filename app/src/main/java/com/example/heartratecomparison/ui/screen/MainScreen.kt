@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +33,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -39,6 +41,7 @@ import com.example.heartratecomparison.R
 import com.example.heartratecomparison.bluetooth.HeartRateService
 import com.example.heartratecomparison.ui.chart.MultiHeartRateChart
 import com.example.heartratecomparison.ui.components.LeftPanel
+import com.example.heartratecomparison.ui.common.GlassAlertDialog
 import com.example.heartratecomparison.ui.theme.ChartColors
 import com.example.heartratecomparison.ui.screen.SplashScreen
 
@@ -79,7 +82,9 @@ fun MainScreen() {
 
     var showExitDialog by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
-    var showSplash by remember { mutableStateOf(true) }
+    // 用 rememberSaveable：从 CSV 查看页返回本屏时，MainScreen 会重新组合，
+    // 普通 remember 会重置为 true 并重播启动动画；saveable 可保留已播放状态，避免每次返回都重播
+    var showSplash by rememberSaveable { mutableStateOf(true) }
 
     fun sendServiceCommand(action: String, extra: Pair<String, String>? = null) {
         val intent = Intent(context, HeartRateService::class.java).apply {
@@ -113,31 +118,37 @@ fun MainScreen() {
     // 退出确认弹窗
     BackHandler(enabled = isRecording) { showExitDialog = true }
     if (showExitDialog) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showExitDialog = false },
-            title = {
-                Text(
-                    text = stringResource(R.string.dialog_exit_title),
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-            },
-            text = {
-                Text(
-                    text = stringResource(R.string.dialog_exit_message),
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-            },
-            confirmButton = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            title = stringResource(R.string.dialog_exit_title),
+            text = stringResource(R.string.dialog_exit_message),
+        ) {
+            Row(Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier.weight(1f).padding(end = 6.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    TextButton(onClick = { showExitDialog = false }) {
-                        Text(stringResource(R.string.btn_cancel))
+                    TextButton(
+                        onClick = { showExitDialog = false },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.textButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.btn_cancel),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
+                }
+                Box(
+                    modifier = Modifier.weight(1f).padding(start = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     Button(
                         onClick = {
                             showExitDialog = false
@@ -145,16 +156,20 @@ fun MainScreen() {
                             sendServiceCommand("STOP_SERVICE")
                             activity?.finish()
                         },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text(stringResource(R.string.btn_finish))
+                        Text(
+                            text = stringResource(R.string.btn_finish),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
-            },
-            shape = MaterialTheme.shapes.large,
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp
-        )
+            }
+        }
     }
 
     // 历史页面（预测性返回动画）

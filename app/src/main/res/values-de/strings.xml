@@ -27,8 +27,14 @@
     <string name="chart_guide_record">Tippen Sie auf das Aufzeichnungssymbol zum Starten</string>
     <string name="chart_guide_stop">Aufzeichnungssymbol 3 s gedrückt halten zum Stoppen</string>
     <string name="chart_guide_history">Tippen Sie auf das Verlaufssymbol zum Anzeigen</string>
-    <string name="chart_guide_share">Doppeltippen zum Teilen, langes Drücken zum Löschen</string>
+    <string name="chart_guide_share">Zum Teilen auf das Symbol tippen, Liste zum Löschen lange drücken</string>
     <string name="chart_waiting">Warte auf Aufzeichnung…</string>
+
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">Zwei Finger zum Zoomen der X-Achse, wischen zum Scrollen</string>
+    <string name="chart_reset_guide">3 s gedrückt halten zum Zoom-Reset</string>
+    <string name="chart_legend_guide">Legende antippen zum Ein-/Ausblenden der Kurven</string>
+    <string name="chart_parse_failed">CSV-Daten konnten nicht gelesen werden</string>
 
     <!-- DeviceItem -->
     <string name="desc_bluetooth">Bluetooth</string>
@@ -48,13 +54,10 @@
     <string name="error_file_create_failed">Datei konnte nicht erstellt werden</string>
 
     <!-- HistoryScreen -->
+    <string name="desc_share">Teilen</string>
     <string name="history_empty">Kein Verlauf</string>
     <string name="history_summary">%1$d Messwerte · %2$s</string>
-    <string name="history_delete_title">Datei löschen?</string>
-    <string name="history_delete_message">Möchten Sie diesen Eintrag wirklich löschen?</string>
-
-    <!-- CsvChartScreen -->
-    <string name="chart_zoom_guide">Zwei Finger zum Zoomen der X-Achse, wischen zum Scrollen</string>
-    <string name="chart_reset_guide">3 s gedrückt halten zum Zoom-Reset</string>
-    <string name="chart_legend_guide">Legende antippen zum Ein-/Ausblenden der Kurven</string>
+    <string name="history_delete_title">Datensatz löschen?</string>
+    <string name="csv_import_loading">CSV wird importiert…</string>
+    <string name="csv_import_unsupported">Datei nicht erkennbar. Es werden nur von dieser App exportierte CSV-Dateien unterstützt.</string>
 </resources>

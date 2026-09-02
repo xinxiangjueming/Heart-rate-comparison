@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Comparación de frecuencia cardíaca</string>
+
+    <!-- MainScreen -->
+    <string name="dialog_exit_title">¿Detener la grabación?</string>
+    <string name="dialog_exit_message">Grabación en curso. ¿Seguro que quieres detenerla y salir?</string>
+    <string name="btn_finish">Finalizar</string>
+    <string name="btn_cancel">Cancelar</string>
+    <string name="btn_back">Atrás</string>
+    <string name="btn_confirm">Confirmar</string>
+
+    <!-- LeftPanel -->
+    <string name="cd_search">Buscar</string>
+    <string name="cd_record">Iniciar grabación</string>
+    <string name="cd_record_stop">Detener grabación</string>
+    <string name="cd_history">Ver historial</string>
+    <string name="tooltip_search">Buscar dispositivos de frecuencia cardíaca</string>
+    <string name="tooltip_record_start">Iniciar grabación</string>
+    <string name="tooltip_record_stop">Detener grabación</string>
+    <string name="tooltip_history">Ver los registros del historial</string>
+
+    <!-- MultiHeartRateChart -->
+    <string name="chart_no_device">Ningún dispositivo conectado</string>
+    <string name="chart_guide_search">Toca el icono de búsqueda para buscar dispositivos de frecuencia cardíaca</string>
+    <string name="chart_guide_connect">Toca el icono de Bluetooth para conectar, mantén pulsado para desconectar</string>
+    <string name="chart_guide_record">Toca el icono de grabación para empezar a grabar</string>
+    <string name="chart_guide_stop">Mantén pulsado el icono de grabación 3 s para detener la grabación</string>
+    <string name="chart_guide_history">Toca el icono de historial para ver el historial</string>
+    <string name="chart_guide_share">Toca el icono para compartir, mantén pulsado un elemento de la lista para eliminar</string>
+    <string name="chart_waiting">Esperando para grabar…</string>
+
+    <!-- CsvChartScreen -->
+    <string name="chart_zoom_guide">Pellizca para ampliar el eje X, desliza para navegar</string>
+    <string name="chart_reset_guide">Mantén pulsado 3 s para restablecer el zoom</string>
+    <string name="chart_legend_guide">Toca la leyenda para mostrar u ocultar curvas</string>
+    <string name="chart_parse_failed">No se pudieron analizar los datos CSV</string>
+
+    <!-- DeviceItem -->
+    <string name="desc_bluetooth">Bluetooth</string>
+    <string name="label_battery">Batería</string>
+    <string name="label_heart_rate">FC</string>
+
+    <!-- HeartRateService -->
+    <string name="notif_service_started">Servicio iniciado</string>
+    <string name="notif_record_failed">Error de grabación</string>
+    <string name="notif_recording">Grabando frecuencia cardíaca…</string>
+    <string name="notif_record_stopped">Grabación detenida</string>
+    <string name="notif_action_stop">Detener servicio</string>
+    <string name="notif_channel_name">Servicio de frecuencia cardíaca</string>
+    <string name="notif_channel_desc">Grabación de datos de frecuencia cardíaca en segundo plano</string>
+
+    <!-- CsvRecorder -->
+    <string name="error_file_create_failed">No se pudo crear el archivo</string>
+
+    <!-- HistoryScreen -->
+    <string name="desc_share">Compartir</string>
+    <string name="history_empty">Sin registros en el historial</string>
+    <string name="history_summary">%1$d muestras · %2$s</string>
+    <string name="history_delete_title">¿Eliminar el registro?</string>
+    <string name="csv_import_loading">Importando CSV…</string>
+    <string name="csv_import_unsupported">Archivo no reconocido. Solo se admiten CSV exportados por esta aplicación.</string>
+</resources>
