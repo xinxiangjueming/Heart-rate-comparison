@@ -91,7 +91,8 @@ object CsvExporter {
             for (s in samples) {
                 val idx = orderIndex[s.deviceAddress] ?: continue
                 counts[idx]++
-                hrSums[idx] += s.heartRate
+                // LongArray 复合赋值不会隐式把 Int 拓宽为 Long（否则报 "No set method providing array access"）
+                hrSums[idx] += s.heartRate.toLong()
             }
             // 每设备起始/结束电量：快照已按 timestamp ASC，取每设备首个/末个
             val startBattery = arrayOfNulls<BatterySnapshot>(order.size)
