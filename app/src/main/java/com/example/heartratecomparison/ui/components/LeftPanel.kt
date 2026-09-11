@@ -171,12 +171,15 @@ fun LeftPanel(
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             items(deviceStates, key = { it.address }) { state ->
+                // 回调记忆化：state 未变时实例稳定，配合全稳定类型的 UiDeviceState 让 DeviceItem 跳过重组
+                val itemClick = remember(state) { { onDeviceClick(state) } }
+                val itemLongClick = remember(state) { { onDeviceLongClick(state) } }
                 DeviceItem(
                     deviceState = state,
                     isRecording = isRecording,
                     nameColor = deviceColors[state.address],
-                    onClick = { onDeviceClick(state) },
-                    onLongClick = { onDeviceLongClick(state) }
+                    onClick = itemClick,
+                    onLongClick = itemLongClick
                 )
             }
         }

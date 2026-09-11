@@ -107,6 +107,19 @@ fun CsvChartScreen(
     val gridColor = LocalChartGrid.current
     val labelColor = if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
 
+    // 每帧复用的绘制对象（原实现手势期间每帧新建 Paint/PathEffect/Path，60fps 重绘下 GC 压力大）
+    val dashEffect = remember { PathEffect.dashPathEffect(floatArrayOf(10f, 10f)) }
+    val yLabelPaint = remember(labelColor, density) {
+        android.graphics.Paint().apply {
+            color = labelColor
+            textSize = with(density) { 10.sp.toPx() }
+            textAlign = android.graphics.Paint.Align.RIGHT
+        }
+    }
+    val mainPath = remember { Path() }
+    val fillPath = remember { Path() }
+    val edgePath = remember { Path() }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -197,11 +210,6 @@ fun CsvChartScreen(
                                 .width(20.dp)
                                 .fillMaxHeight()
                         ) {
-                            val textPaint = android.graphics.Paint().apply {
-                                color = labelColor
-                                textSize = with(density) { 10.sp.toPx() }
-                                textAlign = android.graphics.Paint.Align.RIGHT
-                            }
                             val h = size.height
                             for (bpm in listOf(yMax, (yMin + yMax) / 2, yMin)) {
                                 val y = h - (bpm - yMin) / (yMax - yMin) * h
@@ -209,7 +217,7 @@ fun CsvChartScreen(
                                     "${bpm.toInt()}",
                                     size.width - 4.dp.toPx(),
                                     y + 8f,
-                                    textPaint
+                                    yLabelPaint
                                 )
                             }
                         }
@@ -282,7 +290,6 @@ fun CsvChartScreen(
                         ) {
                             val w = size.width
                             val h = size.height
-                            val dashEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
                             if (maxDataPoints < 2) return@Canvas
 
                             // 可见范围
@@ -290,18 +297,17 @@ fun CsvChartScreen(
                             val visStart = panOffset
                             val visEnd = panOffset + visibleCount
 
-                            // 可见数据的 Y 范围
+                            // 可见数据的 Y 范围（块级预聚合：完整块 O(1)，仅两端残余块扫描，
+                            // 替代原 O(可见点×列数) 逐点扫描，长会话手势不再随数据量变慢）
                             var visMin = Float.MAX_VALUE
-                            var visMax = Float.MIN_VALUE
+                            var visMax = -Float.MAX_VALUE
                             parsedData.columns.forEachIndexed { colIndex, col ->
                                 if (colIndex in hiddenDevices) return@forEachIndexed
                                 val startIdx = visStart.toInt().coerceIn(0, col.values.size - 1)
                                 val endIdx = visEnd.toInt().coerceIn(0, col.values.size - 1)
-                                for (i in startIdx..endIdx) {
-                                    val v = col.values[i]
-                                    if (v < visMin) visMin = v
-                                    if (v > visMax) visMax = v
-                                }
+                                val (mn, mx) = col.minMax(startIdx, endIdx)
+                                if (mn < visMin) visMin = mn
+                                if (mx > visMax) visMax = mx
                             }
                             if (visMin > visMax) { visMin = yMin; visMax = yMax }
                             val yPad = (visMax - visMin) * 0.05f
@@ -342,7 +348,8 @@ fun CsvChartScreen(
                                 if (col.values.size < 2) return@forEachIndexed
                                 val color = chartColors[colIndex % chartColors.size]
                                 val fillColor = color.copy(alpha = 0.15f)
-                                val mainPath = Path()
+                                // mainPath/fillPath/edgePath 为 remember 的复用对象，每列先 rewind
+                                mainPath.rewind()
                                 var started = false
 
                                 val iStart = visStart.toInt().coerceIn(0, col.values.size - 1)
@@ -356,37 +363,33 @@ fun CsvChartScreen(
                                 }
 
                                 // 构建填充路径：从左边界开始，沿曲线，到右边界，封闭到底部
-                                val fillPath = Path()
+                                fillPath.rewind()
 
-                                // 左边界插值
-                                val leftY = if (iStart > 0 && visStart > iStart) {
+                                // 左边界插值（填充与描边共用）
+                                val leftClip = iStart > 0 && visStart > iStart
+                                val leftY = if (leftClip) {
                                     val prev = col.values[iStart - 1]
                                     val curr = col.values[iStart]
-                                    val frac = visStart - iStart
-                                    prev + (curr - prev) * frac
+                                    prev + (curr - prev) * (visStart - iStart)
                                 } else {
                                     col.values[iStart].toFloat()
                                 }
                                 fillPath.moveTo(0f, yForValue(leftY))
 
                                 // 连接到主曲线
-                                var fillStarted = false
                                 for (i in iStart..iEnd) {
-                                    val x = scaledX(i)
-                                    val y = yForValue(col.values[i])
-                                    if (!fillStarted) { fillPath.lineTo(x, y); fillStarted = true }
-                                    else fillPath.lineTo(x, y)
+                                    fillPath.lineTo(scaledX(i), yForValue(col.values[i]))
                                 }
 
-                                // 右边界插值
+                                // 右边界插值（填充与描边共用）
                                 val lastIdx = col.values.size - 1
-                                if (iEnd < lastIdx && visEnd < lastIdx) {
-                                    val frac = visEnd - iEnd
-                                    val interpY = col.values[iEnd] + (col.values[iEnd + 1] - col.values[iEnd]) * frac
-                                    fillPath.lineTo(w, yForValue(interpY))
+                                val rightClip = iEnd < lastIdx && visEnd < lastIdx
+                                val rightY = if (rightClip) {
+                                    col.values[iEnd] + (col.values[iEnd + 1] - col.values[iEnd]) * (visEnd - iEnd)
                                 } else {
-                                    fillPath.lineTo(w, yForValue(col.values[iEnd]))
+                                    col.values[iEnd].toFloat()
                                 }
+                                fillPath.lineTo(w, yForValue(rightY))
 
                                 // 封闭到底部
                                 fillPath.lineTo(w, h)
@@ -397,27 +400,19 @@ fun CsvChartScreen(
                                 drawPath(fillPath, fillColor, style = Fill)
 
                                 // 左边界描边
-                                if (iStart > 0 && visStart > iStart) {
-                                    val prev = col.values[iStart - 1]
-                                    val curr = col.values[iStart]
-                                    val frac = visStart - iStart
-                                    val interpY = prev + (curr - prev) * frac
-                                    val leftPath = Path().apply {
-                                        moveTo(0f, yForValue(interpY))
-                                        lineTo(scaledX(iStart), yForValue(curr))
-                                    }
-                                    drawPath(leftPath, color, style = Stroke(width = 3f))
+                                if (leftClip) {
+                                    edgePath.rewind()
+                                    edgePath.moveTo(0f, yForValue(leftY))
+                                    edgePath.lineTo(scaledX(iStart), yForValue(col.values[iStart]))
+                                    drawPath(edgePath, color, style = Stroke(width = 3f))
                                 }
 
                                 // 右边界描边
-                                if (iEnd < lastIdx && visEnd < lastIdx) {
-                                    val frac = visEnd - iEnd
-                                    val interpY = col.values[iEnd] + (col.values[iEnd + 1] - col.values[iEnd]) * frac
-                                    val rightPath = Path().apply {
-                                        moveTo(scaledX(iEnd), yForValue(col.values[iEnd]))
-                                        lineTo(w, yForValue(interpY))
-                                    }
-                                    drawPath(rightPath, color, style = Stroke(width = 3f))
+                                if (rightClip) {
+                                    edgePath.rewind()
+                                    edgePath.moveTo(scaledX(iEnd), yForValue(col.values[iEnd]))
+                                    edgePath.lineTo(w, yForValue(rightY))
+                                    drawPath(edgePath, color, style = Stroke(width = 3f))
                                 }
 
                                 drawPath(mainPath, color, style = Stroke(width = 3f))
@@ -480,13 +475,71 @@ fun CsvChartScreen(
     }
 }
 
-private data class CsvColumn(val name: String, val values: List<Float>)
-private class CsvParsed(val columns: List<CsvColumn>, val globalMin: Float, val globalMax: Float, val times: List<Float>)
+/** 可见范围 min/max 预聚合的块大小：块内扫一遍，帧内只聚合块级结果 */
+private const val Y_RANGE_BLOCK = 256
+
+/** 单列曲线数据：值数组 + 每 Y_RANGE_BLOCK 点的 min/max 预聚合 */
+private class CsvColumn(val name: String, val values: FloatArray) {
+    val blockMins: FloatArray
+    val blockMaxs: FloatArray
+
+    init {
+        val nBlocks = (values.size + Y_RANGE_BLOCK - 1) / Y_RANGE_BLOCK
+        val mins = FloatArray(nBlocks) { Float.MAX_VALUE }
+        val maxs = FloatArray(nBlocks) { -Float.MAX_VALUE }
+        for (i in values.indices) {
+            val b = i / Y_RANGE_BLOCK
+            if (values[i] < mins[b]) mins[b] = values[i]
+            if (values[i] > maxs[b]) maxs[b] = values[i]
+        }
+        blockMins = mins
+        blockMaxs = maxs
+    }
+
+    /** 闭区间 [startIdx, endIdx] 的 min/max：完整块用预聚合 O(1)，两端残余块内扫描 */
+    fun minMax(startIdx: Int, endIdx: Int): Pair<Float, Float> {
+        if (endIdx < startIdx) return Float.MAX_VALUE to -Float.MAX_VALUE
+        var min = Float.MAX_VALUE
+        var max = -Float.MAX_VALUE
+        val bStart = startIdx / Y_RANGE_BLOCK
+        val bEnd = endIdx / Y_RANGE_BLOCK
+        if (bStart == bEnd) {
+            for (i in startIdx..endIdx) {
+                val v = values[i]
+                if (v < min) min = v
+                if (v > max) max = v
+            }
+        } else {
+            for (i in startIdx until (bStart + 1) * Y_RANGE_BLOCK) {
+                val v = values[i]
+                if (v < min) min = v
+                if (v > max) max = v
+            }
+            for (b in bStart + 1 until bEnd) {
+                if (blockMins[b] < min) min = blockMins[b]
+                if (blockMaxs[b] > max) max = blockMaxs[b]
+            }
+            for (i in bEnd * Y_RANGE_BLOCK..endIdx) {
+                val v = values[i]
+                if (v < min) min = v
+                if (v > max) max = v
+            }
+        }
+        return min to max
+    }
+}
+
+private class CsvParsed(val columns: List<CsvColumn>, val globalMin: Float, val globalMax: Float, val times: FloatArray)
 
 /**
  * 从 Room 数据构建图表数据。
  * 按秒分组还原为"一行多列"结构（与历史 CSV 相同的语义）；某设备某秒缺失时沿用上一秒值，
  * 完全无数据的设备不显示为曲线。
+ *
+ * 单趟实现（getSamples 已按 second ASC, deviceAddress ASC 排序）：
+ *  - 第一趟相邻去重提取秒序列，不再 groupBy 全量复制；
+ *  - 每设备一趟顺序游标推进取本设备的样本（原实现每设备×每秒 firstOrNull 线性扫，O(设备×样本)）；
+ *  - 缺失秒沿用上一值，首个样本前保持 0（与原实现一致，用 NaN 区分"未填"与真实 0）。
  */
 private suspend fun buildParsedFromRoom(dao: RecordDao, sessionId: Long): CsvParsed? {
     val session = dao.getSession(sessionId) ?: return null
@@ -494,35 +547,69 @@ private suspend fun buildParsedFromRoom(dao: RecordDao, sessionId: Long): CsvPar
     if (samples.isEmpty()) return null
 
     val order = session.deviceOrderList()
-    val bySecond = samples.groupBy { it.second }.toSortedMap()
-    val baseSecond = bySecond.firstKey()
-    val times = bySecond.keys.map { (it - baseSecond).toFloat() }
+    val baseSecond = samples[0].second
+
+    // 第一趟：相邻去重提取秒序列（SQL 已按 second 排序）
+    var distinct = 0
+    var prev = Long.MIN_VALUE
+    for (s in samples) if (s.second != prev) { prev = s.second; distinct++ }
+    val distinctSeconds = LongArray(distinct)
+    val times = FloatArray(distinct)
+    var w = 0
+    prev = Long.MIN_VALUE
+    for (s in samples) {
+        if (s.second != prev) {
+            prev = s.second
+            distinctSeconds[w] = s.second
+            times[w] = (s.second - baseSecond).toFloat()
+            w++
+        }
+    }
 
     val columns = order.mapNotNull { addr ->
-        val values = mutableListOf<Float>()
-        var last: Float? = null
+        val values = FloatArray(distinct) { Float.NaN }
         var hasData = false
-        for ((_, list) in bySecond) {
-            val hr = list.firstOrNull { it.deviceAddress == addr }?.heartRate
-            if (hr != null) {
-                last = hr.toFloat()
-                hasData = true
-            }
-            values.add(last ?: 0f)
+        var p = 0   // distinctSeconds 游标（设备样本按 second 有序，只前进）
+        for (s in samples) {
+            if (s.deviceAddress != addr) continue
+            while (distinctSeconds[p] < s.second) p++
+            values[p] = s.heartRate.toFloat()
+            hasData = true
         }
         if (!hasData) return@mapNotNull null
+        // 前向填充缺失秒；首个样本前的秒保持 0
+        var carry = Float.NaN
+        for (i in values.indices) {
+            val v = values[i]
+            if (v.isNaN()) {
+                values[i] = if (carry.isNaN()) 0f else carry
+            } else {
+                carry = v
+            }
+        }
         CsvColumn(session.displayNameFor(addr), values)
     }
     if (columns.isEmpty()) return null
 
-    val allValues = columns.flatMap { it.values }
-    val positive = allValues.filter { it > 0f }
-    if (positive.isEmpty()) return null
+    // 全局范围：min 只统计正样本，max 统计全部（与原实现一致）
+    var globalMin = Float.MAX_VALUE
+    var globalMax = -Float.MAX_VALUE
+    var hasPositive = false
+    for (col in columns) {
+        for (v in col.values) {
+            if (v > globalMax) globalMax = v
+            if (v > 0f) {
+                hasPositive = true
+                if (v < globalMin) globalMin = v
+            }
+        }
+    }
+    if (!hasPositive) return null
 
     return CsvParsed(
         columns = columns,
-        globalMin = positive.min(),
-        globalMax = allValues.max(),
+        globalMin = globalMin,
+        globalMax = globalMax,
         times = times
     )
 }

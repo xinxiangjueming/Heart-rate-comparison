@@ -11,6 +11,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
@@ -114,6 +115,19 @@ fun SplashScreen(onFinished: () -> Unit) {
     val ecgCycles = 2.5f
     val ecgSampleCount = 400
 
+    // ECG 全路径只构建一次（原实现每帧重建最多 400 点的 Path）；
+    // 播放进度用 clipRect 揭示，末端平切边缘被发光点覆盖，视觉与逐段绘制一致
+    val ecgPath = remember(screenW, screenH) {
+        Path().apply {
+            for (i in 0 until ecgSampleCount) {
+                val tNorm = i.toFloat() / (ecgSampleCount - 1)
+                val x = -screenW * 0.1f + tNorm * screenW * 1.2f
+                val y = ecgBaselineY - ecgY(tNorm * ecgCycles) * ecgAmplitude
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         progress.animateTo(
             1f,
@@ -207,32 +221,26 @@ fun SplashScreen(onFinished: () -> Unit) {
 
         if (ecgDrawProgress > 0.001f && ecgAlpha > 0.001f) {
             val totalSamples = (ecgSampleCount * ecgDrawProgress).toInt().coerceAtLeast(2)
-            val path = Path()
+            val tipI = (totalSamples - 1).coerceAtLeast(0)
+            val tipTNorm = tipI.toFloat() / (ecgSampleCount - 1)
+            val tipX = -screenW * 0.1f + tipTNorm * screenW * 1.2f
+            val tipY = ecgBaselineY - ecgY(tipTNorm * ecgCycles) * ecgAmplitude
 
-            for (i in 0 until totalSamples) {
-                val tNorm = i.toFloat() / (ecgSampleCount - 1)
-                val x = -screenW * 0.1f + tNorm * screenW * 1.2f
-                val waveT = tNorm * ecgCycles
-                val y = ecgBaselineY - ecgY(waveT) * ecgAmplitude
-                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            // 按进度裁剪整条预构建路径（替代每帧重建裁剪段 Path）
+            clipRect(left = 0f, top = 0f, right = tipX, bottom = size.height) {
+                drawPath(
+                    path = ecgPath,
+                    color = Color(ecgBlue.red, ecgBlue.green, ecgBlue.blue, ecgAlpha * 0.2f),
+                    style = Stroke(width = 6f * density.density)
+                )
+                drawPath(
+                    path = ecgPath,
+                    color = Color(ecgBlue.red, ecgBlue.green, ecgBlue.blue, ecgAlpha * 0.85f),
+                    style = Stroke(width = 2f * density.density)
+                )
             }
 
-            drawPath(
-                path = path,
-                color = Color(ecgBlue.red, ecgBlue.green, ecgBlue.blue, ecgAlpha * 0.2f),
-                style = Stroke(width = 6f * density.density)
-            )
-            drawPath(
-                path = path,
-                color = Color(ecgBlue.red, ecgBlue.green, ecgBlue.blue, ecgAlpha * 0.85f),
-                style = Stroke(width = 2f * density.density)
-            )
-
             if (ecgDrawProgress < 0.98f) {
-                val tipI = (totalSamples - 1).coerceAtLeast(0)
-                val tipTNorm = tipI.toFloat() / (ecgSampleCount - 1)
-                val tipX = -screenW * 0.1f + tipTNorm * screenW * 1.2f
-                val tipY = ecgBaselineY - ecgY(tipTNorm * ecgCycles) * ecgAmplitude
                 drawCircle(
                     color = Color(ecgBlue.red, ecgBlue.green, ecgBlue.blue, ecgAlpha * 0.4f),
                     radius = 8f * density.density,

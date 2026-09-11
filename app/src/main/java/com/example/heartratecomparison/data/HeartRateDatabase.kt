@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [RecordSession::class, HrSample::class, BatterySnapshot::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class HeartRateDatabase : RoomDatabase() {
@@ -49,6 +49,18 @@ abstract class HeartRateDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v2 → v3：hr_samples 删除单列索引 index_hr_samples_sessionId / index_hr_samples_second。
+         * 唯一复合索引 (sessionId, second, deviceAddress) 的最左前缀已覆盖所有按 sessionId 的查询，
+         * 单列索引只增加每行插入的索引维护开销与 DB 体积。
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX IF EXISTS `index_hr_samples_sessionId`")
+                db.execSQL("DROP INDEX IF EXISTS `index_hr_samples_second`")
+            }
+        }
+
         fun getInstance(context: Context): HeartRateDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -56,7 +68,7 @@ abstract class HeartRateDatabase : RoomDatabase() {
                     HeartRateDatabase::class.java,
                     "heartrate.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build().also { INSTANCE = it }
             }
         }

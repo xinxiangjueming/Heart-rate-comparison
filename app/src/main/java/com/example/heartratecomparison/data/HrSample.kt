@@ -21,8 +21,8 @@ import androidx.room.PrimaryKey
         )
     ],
     indices = [
-        Index("sessionId"),
-        Index("second"),
+        // 仅保留唯一复合索引：最左前缀 (sessionId) 已覆盖所有按会话的查询
+        // （getSamples / JOIN 聚合 / 级联删除），单列索引纯写放大，已于 v3 迁移删除
         Index(value = ["sessionId", "second", "deviceAddress"], unique = true)
     ]
 )

@@ -43,9 +43,11 @@ class HeartRateService : Service() {
     private var scanner: BluetoothScanner? = null
     private var scanTimeoutJob: Job? = null
 
-    // ── 心率状态节流 & 增量快照（仅主线程访问） ────────────
-    private var hrDirty = false
-    private val uiCache = HashMap<String, UiDeviceState>()
+    // ── 增量快照缓存（仅主线程访问）：未变化设备复用上次实例，让下游按值相等跳过重组 ──
+    /** 待发射合并窗口（事件驱动节流）：非空表示窗口已开启，期间的新变化合并进同一次发射 */
+    private var hrEmitJob: Job? = null
+    private val uiDeviceCache = HashMap<String, UiDeviceState>()
+    private val uiHistoryCache = HashMap<String, List<Int>>()
 
     companion object {
         const val TAG = "HeartRateService"
@@ -53,7 +55,7 @@ class HeartRateService : Service() {
         const val NOTIFICATION_ID = 1
         const val ACTION_STOP = "STOP_SERVICE"
 
-        /** 心率状态合并发射周期：≤120ms 一次，避免每秒多次全量快照 */
+        /** 心率状态合并发射窗口：首个变化后延迟该时长统一发射，窗口内变化合并，空闲零轮询 */
         private const val THROTTLE_MS = 120L
         /** 单设备内存历史上限 */
         private const val HISTORY_MAX = 300
@@ -62,8 +64,14 @@ class HeartRateService : Service() {
         @Volatile
         private var instance: HeartRateService? = null
 
+        /** 卡片状态流：设备名/连接/心率/电量。UiDeviceState 不含历史字段（全稳定类型，下游可按值跳过重组） */
         private val _globalUiState = MutableStateFlow(UiState())
         val globalUiState = _globalUiState.asStateFlow()
+
+        /** 图表历史流：设备地址 → 心率历史。与卡片状态分流，StateFlow 按内容去重：
+         *  历史内容未变（如非录制期心率刷新）时不发射，图表侧完全无重组 */
+        private val _globalHistoryState = MutableStateFlow<Map<String, List<Int>>>(emptyMap())
+        val globalHistoryState = _globalHistoryState.asStateFlow()
 
         data class UiState(
             val devices: Map<String, UiDeviceState> = emptyMap(),
@@ -86,7 +94,7 @@ class HeartRateService : Service() {
                         ds.heartRateHistory.clear()
                         ds.dirty = true
                     }
-                    svc.emitState()   // 立即发射空历史；emitState 会重置 hrDirty
+                    svc.emitState()   // 立即发射空历史
                 }
             }
             Runtime.getRuntime().gc()
@@ -166,14 +174,6 @@ class HeartRateService : Service() {
 
         csvRecorder = CsvRecorder(this)
 
-        // 心率状态合并节流：≤120ms 发射一次（仅心率走节流，其余事件即时）
-        serviceScope.launch {
-            while (isActive) {
-                delay(THROTTLE_MS)
-                if (hrDirty) emitState()
-            }
-        }
-
         serviceScope.launch {
             while (isActive) {
                 delay(30_000)
@@ -182,7 +182,8 @@ class HeartRateService : Service() {
                     deviceStates.remove(it)
                     connectionOrder.remove(it)
                     deviceColors.remove(it)
-                    uiCache.remove(it)
+                    uiDeviceCache.remove(it)
+                    uiHistoryCache.remove(it)
                 }
                 emitState()
             }
@@ -323,32 +324,51 @@ class HeartRateService : Service() {
         batteryRefreshJob = null
     }
 
-    /** 标记有待发射的心率状态（节流循环据此触发 emitState） */
+    /**
+     * 心率状态节流发射（事件驱动）：首个变化开启一个 THROTTLE_MS 合并窗口，
+     * 窗口结束时统一 emitState 一次；窗口已开启则直接返回（变化合并）。
+     * 无心率变化时零协程、零唤醒（替代原 120ms 常驻轮询循环）。
+     */
     private fun markHrDirty() {
-        hrDirty = true
+        if (hrEmitJob?.isActive == true) return
+        hrEmitJob = serviceScope.launch {
+            delay(THROTTLE_MS)
+            hrEmitJob = null
+            emitState()
+        }
     }
 
     /**
-     * 增量快照：只对 dirty 设备做 history.toList() 拷贝，其余复用 uiCache 中的历史引用。
-     * 仅主线程调用。
+     * 双流增量快照（仅主线程调用）：
+     *  - 卡片流：仅 dirty 设备重建 UiDeviceState（已不含历史字段），其余复用缓存实例；
+     *  - 历史流：仅 dirty 设备做 history.toList()，其余复用上次列表实例；
+     *    StateFlow 按内容去重，历史内容未变时图表侧不发射、不重组。
      */
     private fun emitState() {
-        hrDirty = false
-        val uiDevices = deviceStates.mapValues { (addr, ds) ->
-            val prev = uiCache[addr]
-            val history = if (ds.dirty) ds.heartRateHistory.toList()
-            else prev?.heartRateHistory ?: emptyList()
-            ds.dirty = false
-            UiDeviceState(
-                address = addr,
-                name = ds.device.name ?: addr,
-                isConnected = ds.isConnected,
-                heartRate = ds.heartRate,
-                batteryLevel = ds.batteryLevel,
-                heartRateHistory = history
-            ).also { uiCache[addr] = it }
+        val uiDevices = HashMap<String, UiDeviceState>(deviceStates.size)
+        val uiHistories = HashMap<String, List<Int>>(deviceStates.size)
+        deviceStates.forEach { (addr, ds) ->
+            val prevDevice = uiDeviceCache[addr]
+            val prevHistory = uiHistoryCache[addr]
+            if (ds.dirty || prevDevice == null || prevHistory == null) {
+                uiDevices[addr] = UiDeviceState(
+                    address = addr,
+                    name = ds.device.name ?: addr,
+                    isConnected = ds.isConnected,
+                    heartRate = ds.heartRate,
+                    batteryLevel = ds.batteryLevel
+                )
+                uiHistories[addr] = ds.heartRateHistory.toList()
+                ds.dirty = false
+            } else {
+                uiDevices[addr] = prevDevice
+                uiHistories[addr] = prevHistory
+            }
         }
-        uiCache.keys.retainAll(deviceStates.keys)
+        uiDeviceCache.clear()
+        uiDeviceCache.putAll(uiDevices)
+        uiHistoryCache.clear()
+        uiHistoryCache.putAll(uiHistories)
         _globalUiState.update {
             it.copy(
                 devices = uiDevices,
@@ -358,6 +378,7 @@ class HeartRateService : Service() {
                 isScanning = isScanning
             )
         }
+        _globalHistoryState.value = uiHistories
     }
 
     private fun updateNotification(text: String) {
@@ -417,7 +438,9 @@ class HeartRateService : Service() {
         }
         if (isRecording) {
             // onDestroy 在主线程，csvRecorder.stop() 是 suspend
-            // 用 runBlocking 等待数据落库（onDestroy 是生命周期终结，短暂阻塞可接受）
+            // 用 runBlocking 等待数据落库（onDestroy 是生命周期终结，短暂阻塞可接受）：
+            // 落库量仅为最后 ≤5 秒缓冲 + 结束电量快照 + 汇总更新（2~3 条小事务），
+            // 正常 <100ms，远低于服务销毁场景的系统容忍上限，不会 ANR
             runBlocking { csvRecorder.stop() }
             isRecording = false
         }

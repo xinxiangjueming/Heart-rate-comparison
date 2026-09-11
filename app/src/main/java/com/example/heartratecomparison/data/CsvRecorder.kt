@@ -65,24 +65,37 @@ class CsvRecorder(private val context: Context) {
 
     init {
         ioScope.launch { processingLoop() }
-        // 每 5 秒强制落库（含当前秒缓冲 + 汇总更新 + 电量快照）；只 trySend，不破坏单消费者
-        ioScope.launch {
+    }
+
+    // ── 会话级定时器（录制期间才存在，空闲零唤醒） ──────────
+    /** 录制会话期间运行：5 秒强制落库 + 积压监控；随 Msg.Start/Msg.Stop 启停 */
+    private var sessionTimersJob: Job? = null
+
+    private fun startSessionTimers() {
+        stopSessionTimers()
+        sessionTimersJob = ioScope.launch {
+            // 积压监控：不改行为，仅当消费明显跟不上时告警 IO 过载
+            launch {
+                while (isActive) {
+                    delay(5_000)
+                    val n = backlog.get()
+                    if (n > 500) {
+                        Log.w(TAG, "录制 Channel 积压 $n 条未消化，IO 可能过载（正常 6 设备 1Hz 应趋近 0）")
+                    }
+                }
+            }
+            // 每 5 秒强制落库（含当前秒缓冲 + 汇总更新 + 电量快照）；只 trySend，不破坏单消费者
             while (isActive) {
                 delay(5_000)
                 channel.trySend(Msg.Flush())
                 backlog.incrementAndGet()
             }
         }
-        // 积压监控：不改行为，仅当消费明显跟不上时告警 IO 过载
-        ioScope.launch {
-            while (isActive) {
-                delay(5_000)
-                val n = backlog.get()
-                if (n > 500) {
-                    Log.w(TAG, "录制 Channel 积压 $n 条未消化，IO 可能过载（正常 6 设备 1Hz 应趋近 0）")
-                }
-            }
-        }
+    }
+
+    private fun stopSessionTimers() {
+        sessionTimersJob?.cancel()
+        sessionTimersJob = null
     }
 
     // ── 主线程 API（全部零阻塞） ──────────────────────────
@@ -130,6 +143,7 @@ class CsvRecorder(private val context: Context) {
                 is Msg.Start -> {
                     try {
                         initSession(msg.addresses, msg.names, msg.initialBattery)
+                        startSessionTimers()
                         msg.deferred.complete(Unit)
                     } catch (e: Exception) {
                         Log.e(TAG, "启动录制失败", e)
@@ -147,6 +161,7 @@ class CsvRecorder(private val context: Context) {
                     msg.deferred?.complete(Unit)
                 }
                 is Msg.Stop -> {
+                    stopSessionTimers()   // 最终落库由下方显式执行，定时器先行停止
                     try {
                         if (lastSecond > 0L) flushSecond(lastSecond)   // 写最后秒（REPLACE 幂等）
                         writeBatterySnapshots(force = true)            // 强制写结束电量（含同值）

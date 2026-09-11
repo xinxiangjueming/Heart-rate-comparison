@@ -31,9 +31,11 @@ interface RecordDao {
     @Query("UPDATE sessions SET deviceSampleCounts = :deviceSampleCounts, avgHeartRate = :avgHeartRate WHERE id = :sessionId")
     suspend fun updateSessionSummary(sessionId: Long, deviceSampleCounts: String?, avgHeartRate: Double?)
 
+    /** LEFT JOIN + GROUP BY 聚合样本数：单次扫描替代每行相关子查询（会话多时更快）；LEFT JOIN 保留零样本会话 */
     @Query(
-        "SELECT s.*, (SELECT COUNT(*) FROM hr_samples h WHERE h.sessionId = s.id) AS sampleCount " +
-            "FROM sessions s ORDER BY s.startTime DESC"
+        "SELECT s.*, COUNT(h.id) AS sampleCount " +
+            "FROM sessions s LEFT JOIN hr_samples h ON h.sessionId = s.id " +
+            "GROUP BY s.id ORDER BY s.startTime DESC"
     )
     suspend fun getSessionsWithCount(): List<SessionWithCount>
 

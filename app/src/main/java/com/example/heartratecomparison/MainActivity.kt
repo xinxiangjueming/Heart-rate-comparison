@@ -29,12 +29,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.example.heartratecomparison.bluetooth.HeartRateService
+import com.example.heartratecomparison.data.CsvExporter
 import com.example.heartratecomparison.data.CsvImporter
 import com.example.heartratecomparison.ui.screen.CsvChartScreen
 import com.example.heartratecomparison.ui.screen.MainScreen
 import com.example.heartratecomparison.ui.theme.HeartRateComparisonTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
@@ -84,6 +87,11 @@ class MainActivity : ComponentActivity() {
 
         // 处理"打开 CSV"入口（应用未运行时从此 intent 进入）
         handleIntent(intent)
+
+        // 启动时兜底清理分享缓存：cacheDir/share/ 中超过 7 天的临时 CSV（异步 IO，不阻塞启动）
+        lifecycleScope.launch(Dispatchers.IO) {
+            CsvExporter.cleanExpiredShareFiles(this@MainActivity)
+        }
 
         setContent {
             HeartRateComparisonTheme {

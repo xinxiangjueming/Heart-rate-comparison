@@ -66,6 +66,8 @@ fun MainScreen() {
     val colorPool = ChartColors
 
     val uiState by HeartRateService.globalUiState.collectAsState()
+    // 图表历史单独订阅：历史内容未变时该流不发射（StateFlow 内容去重），图表不受卡片状态刷新牵动
+    val heartRateHistories by HeartRateService.globalHistoryState.collectAsState()
     val deviceStates = uiState.devices
     val connectionOrder = uiState.connectionOrder
     // key 用设备地址集合（结构性相等）：设备集合不变则命中缓存，避免每次心率重建整个 color map
@@ -192,53 +194,64 @@ fun MainScreen() {
         if (isHistory) {
             HistoryScreen(onBack = { showHistory = false })
         } else {
-            // 共享的回调
-            val onScanClick: () -> Unit = {
-                val needRequest = permissions.any {
-                    ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+            // 共享的回调：remember 固定实例（捕获项均为生命周期恒定值），使 LeftPanel/DeviceItem
+            // 能按参数相等跳过重组，让 UiDeviceState 稳定化的收益真正落地
+            val onScanClick: () -> Unit = remember {
+                {
+                    val needRequest = permissions.any {
+                        ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+                    }
+                    if (needRequest) permissionLauncher.launch(permissions)
+                    else sendServiceCommand("TOGGLE_SCAN")
                 }
-                if (needRequest) permissionLauncher.launch(permissions)
-                else sendServiceCommand("TOGGLE_SCAN")
             }
-            val onStartRecord: () -> Unit = {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-                    if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
-                        context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                            data = android.net.Uri.parse("package:${context.packageName}")
-                        })
+            val onStartRecord: () -> Unit = remember {
+                {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                        if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
+                            context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = android.net.Uri.parse("package:${context.packageName}")
+                            })
+                        }
                     }
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+                        } else {
+                            @Suppress("DEPRECATION") vibrator.vibrate(50)
+                        }
+                    } catch (_: SecurityException) {}
+                    sendServiceCommand("START_RECORDING")
                 }
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
-                    } else {
-                        @Suppress("DEPRECATION") vibrator.vibrate(50)
+            }
+            val onStopRecord: () -> Unit = remember {
+                {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+                        } else {
+                            @Suppress("DEPRECATION") vibrator.vibrate(50)
+                        }
+                    } catch (_: SecurityException) {}
+                    sendServiceCommand("STOP_RECORDING")
+                }
+            }
+            val onDeviceClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = remember {
+                { state -> sendServiceCommand("CONNECT_DEVICE", "device_address" to state.address) }
+            }
+            val onDeviceLongClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = remember {
+                { state ->
+                    if (state.isConnected) {
+                        sendServiceCommand("DISCONNECT_DEVICE", "device_address" to state.address)
                     }
-                } catch (_: SecurityException) {}
-                sendServiceCommand("START_RECORDING")
-            }
-            val onStopRecord: () -> Unit = {
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
-                    } else {
-                        @Suppress("DEPRECATION") vibrator.vibrate(50)
-                    }
-                } catch (_: SecurityException) {}
-                sendServiceCommand("STOP_RECORDING")
-            }
-            val onDeviceClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = { state ->
-                sendServiceCommand("CONNECT_DEVICE", "device_address" to state.address)
-            }
-            val onDeviceLongClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = { state ->
-                if (state.isConnected) {
-                    sendServiceCommand("DISCONNECT_DEVICE", "device_address" to state.address)
                 }
             }
 
             val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
             val isTablet = (LocalConfiguration.current.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK) >= Configuration.SCREENLAYOUT_SIZE_LARGE
+            // 图表数据源：连接地址列表 + 历史流（卡片状态与图表历史已分流）
+            val connectedAddresses = connectionOrder.filter { deviceStates[it]?.isConnected == true }
 
             // 主内容：背景铺满全屏（edge-to-edge），只避左右挖孔/侧边手势条；
             // 横屏不隐藏系统栏（状态栏/小白条保持可见），仅数据查看页（CsvChartScreen）进入时隐藏；
@@ -281,8 +294,8 @@ fun MainScreen() {
                                 .padding(start = 15.dp, top = 25.dp, end = 15.dp, bottom = 15.dp)
                         ) {
                             MultiHeartRateChart(
-                                deviceStates = deviceStates,
-                                connectionOrder = connectionOrder,
+                                connectedAddresses = connectedAddresses,
+                                heartRateHistories = heartRateHistories,
                                 deviceColors = deviceColors
                             )
                         }
@@ -314,13 +327,13 @@ fun MainScreen() {
                                 .background(MaterialTheme.colorScheme.surface)
                                 .padding(start = 15.dp, top = 25.dp, end = 15.dp, bottom = 15.dp)
                         ) {
-                            MultiHeartRateChart(
-                                deviceStates = deviceStates,
-                                connectionOrder = connectionOrder,
-                                deviceColors = deviceColors
-                            )
-                        }
-                        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.safeDrawing))
+                        MultiHeartRateChart(
+                            connectedAddresses = connectedAddresses,
+                            heartRateHistories = heartRateHistories,
+                            deviceColors = deviceColors
+                        )
+                    }
+                    Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.safeDrawing))
                     }
                 }
             }
