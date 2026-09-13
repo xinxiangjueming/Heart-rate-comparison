@@ -23,7 +23,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">Brak podłączonego urządzenia</string>
     <string name="chart_guide_search">Dotknij ikony wyszukiwania, aby skanować urządzenia do pomiaru tętna</string>
-    <string name="chart_guide_connect">Dotknij ikony Bluetooth, aby połączyć, przytrzymaj, aby rozłączyć</string>
+    <string name="chart_guide_connect">Dotknij ikony Bluetooth, aby połączyć, urządzenia, aby zobaczyć informacje, przytrzymaj, aby rozłączyć</string>
     <string name="chart_guide_record">Dotknij ikony nagrywania, aby rozpocząć nagrywanie</string>
     <string name="chart_guide_stop">Przytrzymaj ikonę nagrywania przez 3 s, aby zatrzymać nagrywanie</string>
     <string name="chart_guide_history">Dotknij ikony historii, aby wyświetlić historię</string>
@@ -40,6 +40,16 @@
     <string name="desc_bluetooth">Bluetooth</string>
     <string name="label_battery">Bateria</string>
     <string name="label_heart_rate">HR</string>
+
+
+    <!-- DeviceInfoDialog -->
+    <string name="label_device_id">ID urządzenia</string>
+    <string name="label_manufacturer">Producent</string>
+    <string name="label_model">Model</string>
+    <string name="label_serial_number">Numer seryjny</string>
+    <string name="label_firmware_version">Wersja firmware</string>
+    <string name="label_software_version">Wersja oprogramowania</string>
+    <string name="btn_close">Zamknij</string>
 
     <!-- HeartRateService -->
     <string name="notif_service_started">Usługa uruchomiona</string>

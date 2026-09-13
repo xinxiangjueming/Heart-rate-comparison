@@ -124,6 +124,12 @@ fun CsvChartScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            // 全屏数据查看（沉浸横屏）时系统栏已隐藏，safeDrawing 即摄像头挖孔区域，内容须避开；
+            // 分栏模式嵌在 HistoryScreen 内，父级已做过 safeDrawing 内边距，这里再加会双重避让
+            .then(
+                if (immersive) Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
+                else Modifier
+            )
             .padding(7.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {

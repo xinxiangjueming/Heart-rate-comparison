@@ -23,7 +23,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">Kein Gerät verbunden</string>
     <string name="chart_guide_search">Tippen Sie auf das Suchsymbol, um Herzfrequenzgeräte zu scannen</string>
-    <string name="chart_guide_connect">Tippen Sie auf das Bluetooth-Symbol zum Verbinden, langes Drücken zum Trennen</string>
+    <string name="chart_guide_connect">Bluetooth-Symbol antippen zum Verbinden, Gerät antippen für Infos, langes Drücken zum Trennen</string>
     <string name="chart_guide_record">Tippen Sie auf das Aufzeichnungssymbol zum Starten</string>
     <string name="chart_guide_stop">Aufzeichnungssymbol 3 s gedrückt halten zum Stoppen</string>
     <string name="chart_guide_history">Tippen Sie auf das Verlaufssymbol zum Anzeigen</string>
@@ -40,6 +40,16 @@
     <string name="desc_bluetooth">Bluetooth</string>
     <string name="label_battery">Batterie</string>
     <string name="label_heart_rate">HF</string>
+
+
+    <!-- DeviceInfoDialog -->
+    <string name="label_device_id">Geräte-ID</string>
+    <string name="label_manufacturer">Hersteller</string>
+    <string name="label_model">Modell</string>
+    <string name="label_serial_number">Seriennummer</string>
+    <string name="label_firmware_version">Firmware-Version</string>
+    <string name="label_software_version">Software-Version</string>
+    <string name="btn_close">Schließen</string>
 
     <!-- HeartRateService -->
     <string name="notif_service_started">Dienst gestartet</string>

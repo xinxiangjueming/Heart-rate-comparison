@@ -23,7 +23,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">Geen apparaat verbonden</string>
     <string name="chart_guide_search">Tik op het zoekpictogram om naar hartslagapparaten te scannen</string>
-    <string name="chart_guide_connect">Tik op het bluetoothpictogram om te verbinden, houd ingedrukt om te verbreken</string>
+    <string name="chart_guide_connect">Tik op het bluetoothpictogram om te verbinden, op het apparaat voor info, houd ingedrukt om te verbreken</string>
     <string name="chart_guide_record">Tik op het opnamepictogram om de opname te starten</string>
     <string name="chart_guide_stop">Houd het opnamepictogram 3 s ingedrukt om de opname te stoppen</string>
     <string name="chart_guide_history">Tik op het geschiedenispictogram om de geschiedenis te bekijken</string>
@@ -40,6 +40,16 @@
     <string name="desc_bluetooth">Bluetooth</string>
     <string name="label_battery">Batterij</string>
     <string name="label_heart_rate">HS</string>
+
+
+    <!-- DeviceInfoDialog -->
+    <string name="label_device_id">Apparaat-ID</string>
+    <string name="label_manufacturer">Fabrikant</string>
+    <string name="label_model">Model</string>
+    <string name="label_serial_number">Serienummer</string>
+    <string name="label_firmware_version">Firmwareversie</string>
+    <string name="label_software_version">Softwareversie</string>
+    <string name="btn_close">Sluiten</string>
 
     <!-- HeartRateService -->
     <string name="notif_service_started">Service gestart</string>

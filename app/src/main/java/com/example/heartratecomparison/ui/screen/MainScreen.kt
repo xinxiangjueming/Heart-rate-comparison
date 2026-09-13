@@ -42,6 +42,7 @@ import com.example.heartratecomparison.bluetooth.HeartRateService
 import com.example.heartratecomparison.ui.chart.MultiHeartRateChart
 import com.example.heartratecomparison.ui.components.LeftPanel
 import com.example.heartratecomparison.ui.common.GlassAlertDialog
+import com.example.heartratecomparison.ui.common.DeviceInfoDialog
 import com.example.heartratecomparison.ui.theme.ChartColors
 import com.example.heartratecomparison.ui.screen.SplashScreen
 
@@ -84,6 +85,9 @@ fun MainScreen() {
 
     var showExitDialog by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
+    // 设备信息弹窗：点击已连接设备时打开（null = 关闭）
+    var infoDialogAddress by remember { mutableStateOf<String?>(null) }
+    val deviceInfoMap by HeartRateService.globalDeviceInfoState.collectAsState()
     // 用 rememberSaveable：从 CSV 查看页返回本屏时，MainScreen 会重新组合，
     // 普通 remember 会重置为 true 并重播启动动画；saveable 可保留已播放状态，避免每次返回都重播
     var showSplash by rememberSaveable { mutableStateOf(true) }
@@ -174,6 +178,18 @@ fun MainScreen() {
         }
     }
 
+    // 设备信息弹窗（顶层渲染，不随页面切换动画重建）
+    infoDialogAddress?.let { addr ->
+        deviceStates[addr]?.let { ui ->
+            DeviceInfoDialog(
+                deviceName = ui.name,
+                address = addr,
+                info = deviceInfoMap[addr],
+                onDismiss = { infoDialogAddress = null }
+            )
+        }
+    }
+
     // 历史页面（预测性返回动画）
     BackHandler(enabled = showHistory) { showHistory = false }
     AnimatedContent(
@@ -237,10 +253,22 @@ fun MainScreen() {
                     sendServiceCommand("STOP_RECORDING")
                 }
             }
+            // 手势约定：连接/断开只能通过蓝牙图标；点击卡片主体仅查看已连接设备的信息
             val onDeviceClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = remember {
-                { state -> sendServiceCommand("CONNECT_DEVICE", "device_address" to state.address) }
+                { state ->
+                    if (state.isConnected) {
+                        infoDialogAddress = state.address   // 已连接：查看设备信息
+                    }
+                }
             }
-            val onDeviceLongClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = remember {
+            val onIconClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = remember {
+                { state ->
+                    if (!state.isConnected) {
+                        sendServiceCommand("CONNECT_DEVICE", "device_address" to state.address)
+                    }
+                }
+            }
+            val onIconLongClick: (com.example.heartratecomparison.model.UiDeviceState) -> Unit = remember {
                 { state ->
                     if (state.isConnected) {
                         sendServiceCommand("DISCONNECT_DEVICE", "device_address" to state.address)
@@ -283,7 +311,8 @@ fun MainScreen() {
                             onStopRecord = onStopRecord,
                             onShowHistory = { showHistory = true },
                             onDeviceClick = onDeviceClick,
-                            onDeviceLongClick = onDeviceLongClick
+                            onIconClick = onIconClick,
+                            onIconLongClick = onIconLongClick
                         )
                         Box(
                             modifier = Modifier
@@ -296,7 +325,8 @@ fun MainScreen() {
                             MultiHeartRateChart(
                                 connectedAddresses = connectedAddresses,
                                 heartRateHistories = heartRateHistories,
-                                deviceColors = deviceColors
+                                deviceColors = deviceColors,
+                                recordingStartSecond = uiState.recordingStartSecond
                             )
                         }
                     }
@@ -317,7 +347,8 @@ fun MainScreen() {
                             onStopRecord = onStopRecord,
                             onShowHistory = { showHistory = true },
                             onDeviceClick = onDeviceClick,
-                            onDeviceLongClick = onDeviceLongClick
+                            onIconClick = onIconClick,
+                            onIconLongClick = onIconLongClick
                         )
                         Box(
                             modifier = Modifier
@@ -330,7 +361,8 @@ fun MainScreen() {
                         MultiHeartRateChart(
                             connectedAddresses = connectedAddresses,
                             heartRateHistories = heartRateHistories,
-                            deviceColors = deviceColors
+                            deviceColors = deviceColors,
+                            recordingStartSecond = uiState.recordingStartSecond
                         )
                     }
                     Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.safeDrawing))

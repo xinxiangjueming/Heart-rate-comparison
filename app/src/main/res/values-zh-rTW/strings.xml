@@ -23,7 +23,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">暫無裝置連線</string>
     <string name="chart_guide_search">點擊搜尋圖示掃描心率裝置</string>
-    <string name="chart_guide_connect">點擊藍牙圖示連線，長按斷開</string>
+    <string name="chart_guide_connect">點擊藍牙圖示連線，點擊裝置查看資訊，長按斷開</string>
     <string name="chart_guide_record">點擊記錄圖示開始記錄</string>
     <string name="chart_guide_stop">記錄中長按記錄圖示3秒停止</string>
     <string name="chart_guide_history">點擊歷史圖示查看歷史記錄</string>
@@ -40,6 +40,16 @@
     <string name="desc_bluetooth">藍牙</string>
     <string name="label_battery">電量</string>
     <string name="label_heart_rate">心率</string>
+
+
+    <!-- DeviceInfoDialog -->
+    <string name="label_device_id">裝置ID</string>
+    <string name="label_manufacturer">製造商</string>
+    <string name="label_model">型號</string>
+    <string name="label_serial_number">序號</string>
+    <string name="label_firmware_version">韌體版本</string>
+    <string name="label_software_version">軟體版本</string>
+    <string name="btn_close">關閉</string>
 
     <!-- HeartRateService -->
     <string name="notif_service_started">服務已啟動</string>

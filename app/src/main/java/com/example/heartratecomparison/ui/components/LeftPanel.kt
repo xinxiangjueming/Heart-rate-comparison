@@ -48,7 +48,8 @@ fun LeftPanel(
     onStopRecord: () -> Unit,
     onShowHistory: () -> Unit,
     onDeviceClick: (UiDeviceState) -> Unit,
-    onDeviceLongClick: (UiDeviceState) -> Unit = {}
+    onIconClick: (UiDeviceState) -> Unit,
+    onIconLongClick: (UiDeviceState) -> Unit
 ) {
     // 长按停止的进度（0→1，3 秒走满触发停止）
     val stopProgress = remember { Animatable(0f) }
@@ -169,17 +170,19 @@ fun LeftPanel(
 
         Spacer(modifier = Modifier.height(5.dp))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp)) {
             items(deviceStates, key = { it.address }) { state ->
                 // 回调记忆化：state 未变时实例稳定，配合全稳定类型的 UiDeviceState 让 DeviceItem 跳过重组
                 val itemClick = remember(state) { { onDeviceClick(state) } }
-                val itemLongClick = remember(state) { { onDeviceLongClick(state) } }
+                val iconClick = remember(state) { { onIconClick(state) } }
+                val iconLongClick = remember(state) { { onIconLongClick(state) } }
                 DeviceItem(
                     deviceState = state,
                     isRecording = isRecording,
                     nameColor = deviceColors[state.address],
-                    onClick = itemClick,
-                    onLongClick = itemLongClick
+                    onItemClick = itemClick,
+                    onIconClick = iconClick,
+                    onIconLongClick = iconLongClick
                 )
             }
         }

@@ -23,7 +23,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">연결된 기기 없음</string>
     <string name="chart_guide_search">검색 아이콘을 탭하여 심박수 기기를 스캔하세요</string>
-    <string name="chart_guide_connect">블루투스 아이콘을 탭하여 연결, 길게 눌러 연결 해제</string>
+    <string name="chart_guide_connect">블루투스 아이콘을 탭하여 연결, 기기를 탭하여 정보 확인, 길게 눌러 연결 해제</string>
     <string name="chart_guide_record">기록 아이콘을 탭하여 기록 시작</string>
     <string name="chart_guide_stop">기록 중 기록 아이콘을 3초 길게 눌러 중지</string>
     <string name="chart_guide_history">기록 아이콘을 탭하여 기록 보기</string>
@@ -40,6 +40,16 @@
     <string name="desc_bluetooth">블루투스</string>
     <string name="label_battery">배터리</string>
     <string name="label_heart_rate">심박수</string>
+
+
+    <!-- DeviceInfoDialog -->
+    <string name="label_device_id">기기 ID</string>
+    <string name="label_manufacturer">제조사</string>
+    <string name="label_model">모델</string>
+    <string name="label_serial_number">일련번호</string>
+    <string name="label_firmware_version">펌웨어 버전</string>
+    <string name="label_software_version">소프트웨어 버전</string>
+    <string name="btn_close">닫기</string>
 
     <!-- HeartRateService -->
     <string name="notif_service_started">서비스 시작됨</string>

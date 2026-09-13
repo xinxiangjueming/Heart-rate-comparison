@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.example.heartratecomparison.R
@@ -48,8 +49,9 @@ fun DeviceItem(
     deviceState: UiDeviceState,
     isRecording: Boolean,
     nameColor: Color?,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onItemClick: () -> Unit,
+    onIconClick: () -> Unit,
+    onIconLongClick: () -> Unit
 ) {
     val textColor = if (isRecording && nameColor != null) nameColor else Color.Unspecified
     val shape = MaterialTheme.shapes.small
@@ -69,6 +71,11 @@ fun DeviceItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,   // 不显示水波纹
+                    onClick = onItemClick
+                )
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -98,12 +105,26 @@ fun DeviceItem(
                                     .semantics { contentDescription = "$batteryDesc $level%" }
                             )
                             Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = "$level%",
-                                color = infoColor,
-                                fontSize = 11.sp,
-                                maxLines = 1
-                            )
+                            Box {
+                                // 占位文本："100%" 为最宽情形，撑出固定宽度，
+                                // 使不同电量的设备心率图标仍保持左对齐
+                                Text(
+                                    text = "100%",
+                                    color = Color.Transparent,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier.clearAndSetSemantics { }
+                                )
+                                Text(
+                                    text = "$level%",
+                                    color = infoColor,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier.matchParentSize()
+                                )
+                            }
                         }
                         if (deviceState.batteryLevel != null && deviceState.heartRate != null) {
                             Spacer(modifier = Modifier.width(14.dp))
@@ -133,8 +154,8 @@ fun DeviceItem(
                     .combinedClickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,   // 不显示水波纹
-                        onClick = onClick,
-                        onLongClick = onLongClick
+                        onClick = onIconClick,
+                        onLongClick = onIconLongClick
                     ),
                 contentAlignment = Alignment.Center
             ) {

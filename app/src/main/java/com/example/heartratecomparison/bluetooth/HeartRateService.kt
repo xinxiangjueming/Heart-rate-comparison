@@ -13,7 +13,9 @@ import androidx.core.app.NotificationCompat
 import com.example.heartratecomparison.MainActivity
 import com.example.heartratecomparison.R
 import com.example.heartratecomparison.data.CsvRecorder
+import com.example.heartratecomparison.model.DeviceInfo
 import com.example.heartratecomparison.model.DeviceState
+import com.example.heartratecomparison.model.HeartRatePoint
 import com.example.heartratecomparison.model.UiDeviceState
 import kotlinx.coroutines.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -39,6 +41,8 @@ class HeartRateService : Service() {
     private val connectionOrder = CopyOnWriteArrayList<String>()
     private val deviceColors = ConcurrentHashMap<String, Int>()
     private var isRecording = false
+    /** 录制开始的 epoch 秒（仅主线程读写）：实时图表"录制经过时间"轴的基准 */
+    private var recordingStartSecond: Long? = null
     private var isScanning = false
     private var scanner: BluetoothScanner? = null
     private var scanTimeoutJob: Job? = null
@@ -47,7 +51,7 @@ class HeartRateService : Service() {
     /** 待发射合并窗口（事件驱动节流）：非空表示窗口已开启，期间的新变化合并进同一次发射 */
     private var hrEmitJob: Job? = null
     private val uiDeviceCache = HashMap<String, UiDeviceState>()
-    private val uiHistoryCache = HashMap<String, List<Int>>()
+    private val uiHistoryCache = HashMap<String, List<HeartRatePoint>>()
 
     companion object {
         const val TAG = "HeartRateService"
@@ -68,17 +72,23 @@ class HeartRateService : Service() {
         private val _globalUiState = MutableStateFlow(UiState())
         val globalUiState = _globalUiState.asStateFlow()
 
-        /** 图表历史流：设备地址 → 心率历史。与卡片状态分流，StateFlow 按内容去重：
+        /** 图表历史流：设备地址 → 心率历史（带秒级时间戳，每秒最多一点）。与卡片状态分流，StateFlow 按内容去重：
          *  历史内容未变（如非录制期心率刷新）时不发射，图表侧完全无重组 */
-        private val _globalHistoryState = MutableStateFlow<Map<String, List<Int>>>(emptyMap())
+        private val _globalHistoryState = MutableStateFlow<Map<String, List<HeartRatePoint>>>(emptyMap())
         val globalHistoryState = _globalHistoryState.asStateFlow()
+
+        /** 设备信息流：设备地址 → DIS 读取结果。与卡片状态分流，仅设备信息弹窗消费 */
+        private val _globalDeviceInfoState = MutableStateFlow<Map<String, DeviceInfo>>(emptyMap())
+        val globalDeviceInfoState = _globalDeviceInfoState.asStateFlow()
 
         data class UiState(
             val devices: Map<String, UiDeviceState> = emptyMap(),
             val connectionOrder: List<String> = emptyList(),
             val deviceColors: Map<String, Int> = emptyMap(),
             val isRecording: Boolean = false,
-            val isScanning: Boolean = false
+            val isScanning: Boolean = false,
+            /** 录制开始的 epoch 秒，非录制期为 null。图表用它把时间轴标成"录制经过时间" */
+            val recordingStartSecond: Long? = null
         )
 
         /**
@@ -148,10 +158,15 @@ class HeartRateService : Service() {
                         ds.heartRate = hr
                         ds.dirty = true
                         if (isRecording) {
-                            ds.heartRateHistory.addLast(hr)
-                            if (ds.heartRateHistory.size > HISTORY_MAX) {
+                            // 按秒聚合：同一秒内的多次通知覆盖为最新值，保证历史秒值严格递增
+                            val second = System.currentTimeMillis() / 1000
+                            val lastPoint = ds.heartRateHistory.lastOrNull()
+                            if (lastPoint != null && lastPoint.second == second) {
+                                ds.heartRateHistory.removeLast()
+                            } else if (ds.heartRateHistory.size >= HISTORY_MAX) {
                                 ds.heartRateHistory.removeFirst()   // ArrayDeque O(1)
                             }
+                            ds.heartRateHistory.addLast(HeartRatePoint(second, hr))
                         }
                     }
                     markHrDirty()
@@ -169,6 +184,13 @@ class HeartRateService : Service() {
                     }
                     emitState()   // 电池事件稀少，保持即时
                 }
+            },
+            onDeviceInfoReceived = { addr, info ->
+                serviceScope.launch {
+                    deviceStates[addr]?.deviceInfo = info
+                    // 弹窗独立消费此流，不参与卡片 emitState
+                    _globalDeviceInfoState.update { it + (addr to info) }
+                }
             }
         )
 
@@ -184,6 +206,9 @@ class HeartRateService : Service() {
                     deviceColors.remove(it)
                     uiDeviceCache.remove(it)
                     uiHistoryCache.remove(it)
+                }
+                if (toRemove.isNotEmpty()) {
+                    _globalDeviceInfoState.update { it - toRemove }
                 }
                 emitState()
             }
@@ -276,6 +301,7 @@ class HeartRateService : Service() {
                 csvRecorder.start(connectedAddresses, addressToName, initialBattery)
                 // 会话已创建，安全标记录制开始
                 isRecording = true
+                recordingStartSecond = System.currentTimeMillis() / 1000
                 startBatteryRefreshLoop()
                 updateNotification(getString(R.string.notif_recording))
             } catch (e: Exception) {
@@ -296,6 +322,7 @@ class HeartRateService : Service() {
             // 数据已落库，切回主线程清理状态
             deviceStates.values.forEach { it.heartRateHistory.clear(); it.dirty = true }
             isRecording = false
+            recordingStartSecond = null
             updateNotification(getString(R.string.notif_record_stopped))
             emitState()
         }
@@ -346,7 +373,7 @@ class HeartRateService : Service() {
      */
     private fun emitState() {
         val uiDevices = HashMap<String, UiDeviceState>(deviceStates.size)
-        val uiHistories = HashMap<String, List<Int>>(deviceStates.size)
+        val uiHistories = HashMap<String, List<HeartRatePoint>>(deviceStates.size)
         deviceStates.forEach { (addr, ds) ->
             val prevDevice = uiDeviceCache[addr]
             val prevHistory = uiHistoryCache[addr]
@@ -375,7 +402,8 @@ class HeartRateService : Service() {
                 connectionOrder = connectionOrder.toList(),
                 deviceColors = deviceColors.toMap(),
                 isRecording = isRecording,
-                isScanning = isScanning
+                isScanning = isScanning,
+                recordingStartSecond = recordingStartSecond
             )
         }
         _globalHistoryState.value = uiHistories

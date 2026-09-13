@@ -23,7 +23,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">デバイス未接続</string>
     <string name="chart_guide_search">検索アイコンをタップして心拍数デバイスをスキャン</string>
-    <string name="chart_guide_connect">蓝牙アイコンをタップして接続、長押しで切断</string>
+    <string name="chart_guide_connect">Bluetoothアイコンをタップで接続、デバイスをタップで情報表示、長押しで切断</string>
     <string name="chart_guide_record">記録アイコンをタップして記録開始</string>
     <string name="chart_guide_stop">記録中に記録アイコンを3秒長押しで停止</string>
     <string name="chart_guide_history">履歴アイコンをタップして履歴を表示</string>
@@ -40,6 +40,16 @@
     <string name="desc_bluetooth">Bluetooth</string>
     <string name="label_battery">バッテリー</string>
     <string name="label_heart_rate">心拍数</string>
+
+
+    <!-- DeviceInfoDialog -->
+    <string name="label_device_id">デバイスID</string>
+    <string name="label_manufacturer">製造元</string>
+    <string name="label_model">型番</string>
+    <string name="label_serial_number">シリアル番号</string>
+    <string name="label_firmware_version">ファームウェアバージョン</string>
+    <string name="label_software_version">ソフトウェアバージョン</string>
+    <string name="btn_close">閉じる</string>
 
     <!-- HeartRateService -->
     <string name="notif_service_started">サービス開始</string>

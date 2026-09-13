@@ -23,7 +23,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">Устройство не подключено</string>
     <string name="chart_guide_search">Нажмите значок поиска для сканирования устройств измерения пульса</string>
-    <string name="chart_guide_connect">Нажмите значок Bluetooth для подключения, долгое нажатие — для отключения</string>
+    <string name="chart_guide_connect">Нажмите значок Bluetooth для подключения, устройство — для информации, долгое нажатие — для отключения</string>
     <string name="chart_guide_record">Нажмите значок записи, чтобы начать запись</string>
     <string name="chart_guide_stop">Удерживайте значок записи 3 с, чтобы остановить запись</string>
     <string name="chart_guide_history">Нажмите значок истории, чтобы просмотреть историю</string>
@@ -40,6 +40,16 @@
     <string name="desc_bluetooth">Bluetooth</string>
     <string name="label_battery">Заряд</string>
     <string name="label_heart_rate">ЧСС</string>
+
+
+    <!-- DeviceInfoDialog -->
+    <string name="label_device_id">ID устройства</string>
+    <string name="label_manufacturer">Производитель</string>
+    <string name="label_model">Модель</string>
+    <string name="label_serial_number">Серийный номер</string>
+    <string name="label_firmware_version">Версия прошивки</string>
+    <string name="label_software_version">Версия ПО</string>
+    <string name="btn_close">Закрыть</string>
 
     <!-- HeartRateService -->
     <string name="notif_service_started">Служба запущена</string>

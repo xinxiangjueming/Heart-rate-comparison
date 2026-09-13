@@ -23,7 +23,7 @@
     <!-- MultiHeartRateChart -->
     <string name="chart_no_device">No device connected</string>
     <string name="chart_guide_search">Tap the search icon to scan for heart rate devices</string>
-    <string name="chart_guide_connect">Tap bluetooth icon to connect, long press to disconnect</string>
+    <string name="chart_guide_connect">Tap bluetooth icon to connect, tap device for info, long press to disconnect</string>
     <string name="chart_guide_record">Tap the record icon to start recording</string>
     <string name="chart_guide_stop">Long press the record icon for 3s to stop recording</string>
     <string name="chart_guide_history">Tap the history icon to view history</string>
@@ -40,6 +40,16 @@
     <string name="desc_bluetooth">Bluetooth</string>
     <string name="label_battery">Battery</string>
     <string name="label_heart_rate">HR</string>
+
+
+    <!-- DeviceInfoDialog -->
+    <string name="label_device_id">Device ID</string>
+    <string name="label_manufacturer">Manufacturer</string>
+    <string name="label_model">Model</string>
+    <string name="label_serial_number">Serial No.</string>
+    <string name="label_firmware_version">Firmware Version</string>
+    <string name="label_software_version">Software Version</string>
+    <string name="btn_close">Close</string>
 
     <!-- HeartRateService -->
     <string name="notif_service_started">Service started</string>
