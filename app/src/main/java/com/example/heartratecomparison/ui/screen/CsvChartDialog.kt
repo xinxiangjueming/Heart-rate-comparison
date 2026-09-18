@@ -19,18 +19,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -47,8 +49,12 @@ import com.example.heartratecomparison.ui.theme.LocalChartAxis
 import com.example.heartratecomparison.ui.theme.LocalChartGrid
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.roundToInt
 
 private val chartColors = ChartColors
+
+/** Y 轴占位宽度（Y 轴标签画布 / 底部时间行占位 / 滑块左缩进共用） */
+private val Y_AXIS_WIDTH = 20.dp
 
 @Composable
 fun CsvChartScreen(
@@ -119,6 +125,17 @@ fun CsvChartScreen(
     val mainPath = remember { Path() }
     val fillPath = remember { Path() }
     val edgePath = remember { Path() }
+    // scrub 读数悬浮层：数值标签文字（textSize 每帧按绘图区高度设置，颜色随曲线）
+    val scrubTextPaint = remember { android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG) }
+    // scrub 读数时底部跟随手指的时间文字（样式与初末时间标签一致）
+    val scrubTimeColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    val scrubTimePaint = remember(scrubTimeColor, density) {
+        android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = scrubTimeColor.toArgb()
+            textSize = with(density) { 10.sp.toPx() }
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -201,19 +218,24 @@ fun CsvChartScreen(
                         .fillMaxSize()
                         .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surface)
-                        .padding(start = 15.dp, top = 25.dp, end = 15.dp, bottom = 15.dp)
+                        // 原 bottom 15dp padding 让位给下方滑块区 Box（总高度不变，滑块出现/消失无布局跳动）
+                        .padding(start = 15.dp, top = 25.dp, end = 15.dp)
                 ) {
                     // 缩放状态（图表和时间标签共享）
                     val maxDataPoints = parsedData.columns.maxOfOrNull { it.values.size } ?: 0
                     var zoomLevel by remember { mutableFloatStateOf(1f) }
                     var panOffset by remember { mutableFloatStateOf(0f) }
+                    // scrub 读数状态（同 sportlink：单指按下即进入，抬起/双指退出）
+                    var isScrubbing by remember { mutableStateOf(false) }
+                    var scrubX by remember { mutableFloatStateOf(0f) }
+                    val currentZoomLevel by rememberUpdatedState(zoomLevel)
 
-                    // 图表区域（支持手势缩放和滑动）
+                    // 图表区域（双指缩放 + 单指 scrub 读数）
                     Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         // Y 轴标签（固定显示完整数据范围）
                         Canvas(
                             modifier = Modifier
-                                .width(20.dp)
+                                .width(Y_AXIS_WIDTH)
                                 .fillMaxHeight()
                         ) {
                             val h = size.height
@@ -228,7 +250,7 @@ fun CsvChartScreen(
                             }
                         }
 
-                        // 曲线区域（支持缩放、滑动、长按重置）
+                        // 曲线区域（单指按住显示当秒心率，双指缩放，双指按住 3 秒重置）
 
 
                         Canvas(
@@ -241,55 +263,74 @@ fun CsvChartScreen(
                                     awaitEachGesture {
                                         val down = awaitFirstDown(requireUnconsumed = false)
                                         val downPos = down.position
+                                        val downTime = System.currentTimeMillis()
                                         var moved = false
+                                        // 双指 pinch 一旦开始，本次手势内不再回到单指 scrub（同 sportlink）
+                                        var multiStarted = false
+                                        var pressedCount = 0
 
-                                        // 3 秒超时直接重置缩放
                                         try {
-                                            withTimeout(3000) {
-                                                do {
-                                                    val event = awaitPointerEvent()
+                                            do {
+                                                // 静置也可触发"双指按住 3 秒重置"：对未移动的双指等待施加超时
+                                                // （保留原 withTimeout 语义，无事件流时同样能在 3 秒触发）
+                                                val remaining = 3000L - (System.currentTimeMillis() - downTime)
+                                                val event = if (!moved && pressedCount >= 2 && remaining > 0) {
+                                                    withTimeoutOrNull(remaining) { awaitPointerEvent() }
+                                                } else {
+                                                    awaitPointerEvent()
+                                                }
+                                                if (event == null) {
+                                                    // 静置满 3 秒未动 → 重置缩放
+                                                    zoomLevel = 1f
+                                                    panOffset = 0f
+                                                    break
+                                                }
+                                                val changes = event.changes
 
-                                                    for (change in event.changes) {
-                                                        if ((change.position - downPos).getDistance() > 10f) {
-                                                            moved = true
-                                                        }
+                                                for (change in changes) {
+                                                    if ((change.position - downPos).getDistance() > 10f) {
+                                                        moved = true
                                                     }
+                                                }
+                                                pressedCount = changes.count { it.pressed }
 
-                                                    // 缩放 + 滑动处理
-                                                    if (event.changes.size >= 2) {
-                                                        val currentDist = (event.changes[0].position - event.changes[1].position).getDistance()
-                                                        val prevDist = (event.changes[0].previousPosition - event.changes[1].previousPosition).getDistance()
-                                                        if (prevDist > 0f) {
-                                                            val zoom = currentDist / prevDist
-                                                            val newZoom = (zoomLevel * zoom).coerceIn(1f, 20f)
-                                                            val visibleCount = maxDataPoints / newZoom
-                                                            val centerIndex = panOffset + visibleCount / 2f
-                                                            zoomLevel = newZoom
-                                                            val newVisibleCount = maxDataPoints / zoomLevel
-                                                            panOffset = (centerIndex - newVisibleCount / 2f)
-                                                                .coerceIn(0f, (maxDataPoints - newVisibleCount).coerceAtLeast(0f))
-                                                            moved = true
-                                                        }
-                                                    } else if (moved) {
-                                                        val pan = event.changes.firstOrNull()?.let {
-                                                            it.position - it.previousPosition
-                                                        } ?: Offset.Zero
-                                                        if (zoomLevel > 1f) {
-                                                            val newVisibleCount = maxDataPoints / zoomLevel
-                                                            val pixelsPerPoint = size.width / newVisibleCount
-                                                            val indexDelta = -pan.x / pixelsPerPoint
-                                                            panOffset = (panOffset + indexDelta)
-                                                                .coerceIn(0f, (maxDataPoints - newVisibleCount).coerceAtLeast(0f))
-                                                        }
+                                                if (!moved && pressedCount >= 2 &&
+                                                    System.currentTimeMillis() - downTime >= 3000
+                                                ) {
+                                                    zoomLevel = 1f
+                                                    panOffset = 0f
+                                                    break
+                                                }
+
+                                                if (pressedCount >= 2) {
+                                                    multiStarted = true
+                                                    isScrubbing = false
+
+                                                    // 双指捏合缩放（以可见区间中点为焦点）
+                                                    val currentDist = (changes[0].position - changes[1].position).getDistance()
+                                                    val prevDist = (changes[0].previousPosition - changes[1].previousPosition).getDistance()
+                                                    if (prevDist > 0f) {
+                                                        val zoom = currentDist / prevDist
+                                                        val newZoom = (zoomLevel * zoom).coerceIn(1f, 20f)
+                                                        val visibleCount = maxDataPoints / newZoom
+                                                        val centerIndex = panOffset + visibleCount / 2f
+                                                        zoomLevel = newZoom
+                                                        val newVisibleCount = maxDataPoints / zoomLevel
+                                                        panOffset = (centerIndex - newVisibleCount / 2f)
+                                                            .coerceIn(0f, (maxDataPoints - newVisibleCount).coerceAtLeast(0f))
                                                     }
-                                                } while (event.changes.any { it.pressed })
-                                            }
-                                        } catch (_: CancellationException) {
-                                            // 3 秒超时 → 重置缩放
-                                            if (!moved) {
-                                                zoomLevel = 1f
-                                                panOffset = 0f
-                                            }
+                                                } else if (!multiStarted) {
+                                                    // 单指：按下即进入 scrub 读数（同 sportlink）；平移由底部滑块承担
+                                                    val change = changes.first()
+                                                    if (change.pressed) {
+                                                        isScrubbing = true
+                                                        scrubX = change.position.x.coerceIn(0f, size.width.toFloat())
+                                                        change.consume()
+                                                    }
+                                                }
+                                            } while (changes.any { it.pressed })
+                                        } finally {
+                                            isScrubbing = false
                                         }
                                     }
                                 }
@@ -423,56 +464,201 @@ fun CsvChartScreen(
 
                                 drawPath(mainPath, color, style = Stroke(width = 3f))
                             }
+
+                            // ── Scrub 读数悬浮层（同 sportlink：竖线 + 各设备圆点 + 数值标签）──
+                            if (isScrubbing) {
+                                val clampedX = scrubX.coerceIn(0f, w)
+                                drawLine(
+                                    if (isDark) Color(0x80FFFFFF.toInt()) else Color(0x80000000.toInt()),
+                                    Offset(clampedX, 0f),
+                                    Offset(clampedX, h),
+                                    strokeWidth = 2f
+                                )
+
+                                // 手指位置 → 数据索引（可见区间线性映射）
+                                val scrubIdx = (visStart + clampedX / w * (visEnd - visStart))
+                                    .roundToInt()
+                                    .coerceIn(0, maxDataPoints - 1)
+
+                                val scrubTextSize = (h * 0.032f).coerceIn(8f, 18f) * 3f
+                                scrubTextPaint.textSize = scrubTextSize
+                                val gap = scrubTextSize * 0.25f
+                                val textH = scrubTextSize * 1.3f
+                                val scrubBgColor = if (isDark) Color(0xCC222222.toInt()) else Color(0xCCFFFFFF.toInt())
+
+                                var labelY = 10f
+                                parsedData.columns.forEachIndexed { colIndex, col ->
+                                    if (colIndex in hiddenDevices) return@forEachIndexed
+                                    val v = col.values[scrubIdx]
+                                    if (v <= 0f) return@forEachIndexed   // 首个样本前的填充 0 不显示
+
+                                    val color = chartColors[colIndex % chartColors.size]
+                                    // 圆点画在手指 X 处、Y 取该设备当秒值（同 sportlink，避免圆点横向跳变）
+                                    drawCircle(color, radius = scrubTextSize * 0.25f, center = Offset(clampedX, yForValue(v)))
+
+                                    // 标签「设备名 心率」：背景圆角块 + 曲线色文字，右侧放不下翻到线左侧
+                                    val labelText = "${col.name} ${v.toInt()}"
+                                    val textWidth = scrubTextPaint.measureText(labelText)
+                                    val fitsRight = clampedX + textWidth + gap * 2f < w
+                                    val bgX = if (fitsRight) clampedX + gap else clampedX - textWidth - gap * 3f
+                                    drawRoundRect(
+                                        scrubBgColor,
+                                        topLeft = Offset(bgX, labelY),
+                                        size = Size(textWidth + gap * 2f, textH + gap),
+                                        cornerRadius = CornerRadius(gap, gap)
+                                    )
+                                    scrubTextPaint.color = color.toArgb()
+                                    drawContext.canvas.nativeCanvas.drawText(labelText, bgX + gap, labelY + textH, scrubTextPaint)
+                                    labelY += textH + gap * 1.5f
+                                }
+                            }
                         }
                     }
 
-                    // 底部时间标签
-                    Row(
+                    // 底部区：时间标签 + 滑块区（外层 Column 承载滑块拖动手势）
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(24.dp)
-                    ) {
-                        // 与 Y 轴等宽的占位
-                        Spacer(modifier = Modifier.width(20.dp))
-                        // 时间标签（跟随缩放和偏移）
-                        Row(modifier = Modifier.weight(1f)) {
-                            fun formatTime(seconds: Float): String {
-                                val totalSecs = seconds.toInt()
-                                val h = totalSecs / 3600
-                                val m = (totalSecs % 3600) / 60
-                                val s = totalSecs % 60
-                                return String.format("%02d:%02d:%02d", h, m, s)
-                            }
-                            // 计算可见范围的时间
-                            val visibleCount = (maxDataPoints / zoomLevel).coerceAtLeast(2f)
-                            val visStart = panOffset
-                            val visEnd = panOffset + visibleCount
-                            val tStartIdx = visStart.toInt().coerceIn(0, (parsedData.times.size - 1).coerceAtLeast(0))
-                            val tEndIdx = visEnd.toInt().coerceIn(0, (parsedData.times.size - 1).coerceAtLeast(0))
-                            val tMidIdx = ((visStart + visEnd) / 2f).toInt().coerceIn(0, (parsedData.times.size - 1).coerceAtLeast(0))
-                            val tStart = parsedData.times.getOrNull(tStartIdx) ?: parsedData.times.firstOrNull() ?: 0f
-                            val tEnd = parsedData.times.getOrNull(tEndIdx) ?: parsedData.times.lastOrNull() ?: 0f
-                            val tMid = parsedData.times.getOrNull(tMidIdx) ?: (tStart + tEnd) / 2f
+                            .pointerInput(maxDataPoints) {
+                                // 底部滑块拖动/点击平移（放大后才响应；thumb 中心跟随手指，同 sportlink）
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    if (currentZoomLevel <= 1.005f) return@awaitEachGesture
+                                    val plotLeft = Y_AXIS_WIDTH.toPx()
+                                    if (down.position.x < plotLeft) return@awaitEachGesture
+                                    val plotWidth = size.width - plotLeft
 
-                            Text(
-                                text = formatTime(tStart),
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                            Spacer(modifier = Modifier.weight(1f))
-                            if (tEnd > tStart) {
-                                Text(
-                                    text = formatTime(tMid),
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                                Spacer(modifier = Modifier.weight(1f))
+                                    fun applyDrag(x: Float) {
+                                        val z = currentZoomLevel
+                                        val visibleCount = (maxDataPoints / z).coerceAtLeast(2f)
+                                        val span = (maxDataPoints - visibleCount).coerceAtLeast(1f)
+                                        val thumbWidth = (plotWidth / z).coerceAtLeast(40.dp.toPx())
+                                        val travel = (plotWidth - thumbWidth).coerceAtLeast(1f)
+                                        val frac = ((x - thumbWidth / 2f - plotLeft) / travel).coerceIn(0f, 1f)
+                                        panOffset = frac * span
+                                    }
+
+                                    applyDrag(down.position.x)
+                                    down.consume()
+                                    do {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull { it.pressed } ?: break
+                                        applyDrag(change.position.x)
+                                        change.consume()
+                                    } while (event.changes.any { it.pressed })
+                                }
                             }
-                            Text(
-                                text = formatTime(tEnd),
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
+                    ) {
+                        // 底部时间标签
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(24.dp)
+                        ) {
+                            // 与 Y 轴等宽的占位
+                            Spacer(modifier = Modifier.width(Y_AXIS_WIDTH))
+                            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                                fun formatTime(seconds: Float): String {
+                                    val totalSecs = seconds.toInt()
+                                    val h = totalSecs / 3600
+                                    val m = (totalSecs % 3600) / 60
+                                    val s = totalSecs % 60
+                                    return String.format("%02d:%02d:%02d", h, m, s)
+                                }
+                                // 时间标签（跟随缩放和偏移）
+                                Row(modifier = Modifier.fillMaxSize()) {
+                                    // 计算可见范围的时间
+                                    val visibleCount = (maxDataPoints / zoomLevel).coerceAtLeast(2f)
+                                    val visStart = panOffset
+                                    val visEnd = panOffset + visibleCount
+                                    val tStartIdx = visStart.toInt().coerceIn(0, (parsedData.times.size - 1).coerceAtLeast(0))
+                                    val tEndIdx = visEnd.toInt().coerceIn(0, (parsedData.times.size - 1).coerceAtLeast(0))
+                                    val tMidIdx = ((visStart + visEnd) / 2f).toInt().coerceIn(0, (parsedData.times.size - 1).coerceAtLeast(0))
+                                    val tStart = parsedData.times.getOrNull(tStartIdx) ?: parsedData.times.firstOrNull() ?: 0f
+                                    val tEnd = parsedData.times.getOrNull(tEndIdx) ?: parsedData.times.lastOrNull() ?: 0f
+                                    val tMid = parsedData.times.getOrNull(tMidIdx) ?: (tStart + tEnd) / 2f
+
+                                    // scrub 读数时隐藏初/中/末时间（由跟随手指的 scrub 时间替代）
+                                    if (!isScrubbing) {
+                                        Text(
+                                            text = formatTime(tStart),
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    if (tEnd > tStart && !isScrubbing) {
+                                        Text(
+                                            text = formatTime(tMid),
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                    if (!isScrubbing) {
+                                        Text(
+                                            text = formatTime(tEnd),
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                }
+
+                                // scrub 读数时：跟随手指的当秒时间（样式与初末标签一致，钳制在绘图区内）
+                                if (isScrubbing) {
+                                    Canvas(modifier = Modifier.matchParentSize()) {
+                                        val plotWidth = size.width
+                                        if (plotWidth > 0f) {
+                                            val visibleCount = (maxDataPoints / zoomLevel).coerceAtLeast(2f)
+                                            val visStart = panOffset
+                                            val visEnd = panOffset + visibleCount
+                                            val idx = (visStart + scrubX.coerceIn(0f, plotWidth) / plotWidth * (visEnd - visStart))
+                                                .roundToInt()
+                                                .coerceIn(0, maxDataPoints - 1)
+                                            val seconds = parsedData.times.getOrNull(idx) ?: return@Canvas
+                                            val text = formatTime(seconds)
+                                            val half = scrubTimePaint.measureText(text) / 2f
+                                            val x = scrubX.coerceIn(0f, plotWidth).coerceIn(half, (plotWidth - half).coerceAtLeast(half))
+                                            val fm = scrubTimePaint.fontMetrics
+                                            val baseline = size.height / 2f - (fm.ascent + fm.descent) / 2f
+                                            drawContext.canvas.nativeCanvas.drawText(text, x, baseline, scrubTimePaint)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 滑块区（占用原卡片底部 padding；放大后出现，点击/拖动平移时间轴）
+                        Box(modifier = Modifier.fillMaxWidth().height(15.dp)) {
+                            if (zoomLevel > 1.005f) {
+                                Canvas(modifier = Modifier.fillMaxSize()) {
+                                    val plotLeft = Y_AXIS_WIDTH.toPx()
+                                    val plotWidth = size.width - plotLeft
+                                    if (plotWidth > 0f) {
+                                        val visibleCount = (maxDataPoints / zoomLevel).coerceAtLeast(2f)
+                                        val span = (maxDataPoints - visibleCount).coerceAtLeast(1f)
+                                        val thumbWidth = (plotWidth / zoomLevel).coerceAtLeast(40.dp.toPx())
+                                        val travel = (plotWidth - thumbWidth).coerceAtLeast(1f)
+                                        val thumbLeft = plotLeft + (panOffset / span).coerceIn(0f, 1f) * travel
+                                        val trackHeight = 4.dp.toPx()
+                                        val thumbHeight = 6.dp.toPx()
+                                        val centerY = size.height / 2f
+                                        // track：绘图区全宽半透明胶囊；thumb：中心对齐 track 的胶囊滑块
+                                        drawRoundRect(
+                                            if (isDark) Color(0x24FFFFFF.toInt()) else Color(0x1E000000.toInt()),
+                                            topLeft = Offset(plotLeft, centerY - trackHeight / 2f),
+                                            size = Size(plotWidth, trackHeight),
+                                            cornerRadius = CornerRadius(trackHeight / 2f)
+                                        )
+                                        drawRoundRect(
+                                            if (isDark) Color(0x8CFFFFFF.toInt()) else Color(0x59000000.toInt()),
+                                            topLeft = Offset(thumbLeft, centerY - thumbHeight / 2f),
+                                            size = Size(thumbWidth, thumbHeight),
+                                            cornerRadius = CornerRadius(thumbHeight / 2f)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
