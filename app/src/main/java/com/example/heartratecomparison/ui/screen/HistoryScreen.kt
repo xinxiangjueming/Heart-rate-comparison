@@ -3,19 +3,27 @@ package com.example.heartratecomparison.ui.screen
 import android.content.Intent
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -156,7 +164,29 @@ fun HistoryScreen(onBack: () -> Unit) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val isTablet = (configuration.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK) >= Configuration.SCREENLAYOUT_SIZE_LARGE
-    val useSplitLayout = isLandscape && isTablet
+
+    // 列表滚动位置提升到方向分支之外：横竖屏切换时列表位置不丢
+    val listState = rememberLazyGridState()
+
+    // Activity 因 configChanges=orientation|screenSize 不会重建，旋转只在 Compose 层重组。
+    // 「淡出 → 切换布局 → 淡入」：先淡出旧布局（130ms），在完全不可见时换成新布局，
+    // 再淡入并伴随 0.98→1 的轻微缩放回弹（220ms），避免列表硬跳变。
+    var layoutLandscape by remember { mutableStateOf(isLandscape) }
+    val layoutProgress = remember { Animatable(1f) }
+    LaunchedEffect(isLandscape) {
+        if (isLandscape == layoutLandscape) {
+            // 旋转中途折返：动画可能停在半途，把当前布局补回完全可见
+            layoutProgress.animateTo(1f, tween(180, easing = FastOutSlowInEasing))
+            return@LaunchedEffect
+        }
+        layoutProgress.animateTo(0f, tween(130, easing = LinearEasing))
+        layoutLandscape = isLandscape
+        layoutProgress.animateTo(1f, tween(220, easing = FastOutSlowInEasing))
+    }
+
+    val useSplitLayout = layoutLandscape && isTablet
+    // 整屏横屏时历史列表排两列；竖屏与分栏左栏（窄）保持一列
+    val listColumns = if (layoutLandscape) 2 else 1
 
     // 全屏横图表（非分栏模式时）
     if (selectedSession != null && !useSplitLayout) {
@@ -174,45 +204,59 @@ fun HistoryScreen(onBack: () -> Unit) {
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.safeDrawing))
-            if (useSplitLayout && selectedSession != null) {
-                // 大屏横屏分栏：左侧列表，右侧图表
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    ) {
-                        SessionListContent(
-                            sessionList = sessionList,
-                            onSessionClick = { selectedSession = it },
-                            onSessionShare = { shareSession(it.session.id) },
-                            onSessionLongClick = { sessionToDelete = it },
-                            displayFormat = displayFormat,
-                            contentBottomPadding = bottomInset
-                        )
+            // 过渡动画只作用于内容层：背景与系统栏避让层保持稳定，不参与淡入淡出/缩放
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = layoutProgress.value
+                        val s = 0.98f + 0.02f * layoutProgress.value
+                        scaleX = s
+                        scaleY = s
                     }
-                    Spacer(modifier = Modifier.width(7.dp))
-                    Box(
-                        modifier = Modifier
-                            .weight(3f)
-                            .fillMaxHeight()
-                    ) {
-                        // 分栏模式：列表可见，不锁定横屏也不隐藏系统栏
-                        CsvChartScreen(
-                            sessionId = selectedSession!!.session.id,
-                            onBack = { selectedSession = null },
-                            immersive = false
-                        )
+            ) {
+                if (useSplitLayout && selectedSession != null) {
+                    // 大屏横屏分栏：左侧列表，右侧图表
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        ) {
+                            SessionListContent(
+                                sessionList = sessionList,
+                                onSessionClick = { selectedSession = it },
+                                onSessionShare = { shareSession(it.session.id) },
+                                onSessionLongClick = { sessionToDelete = it },
+                                displayFormat = displayFormat,
+                                state = listState,
+                                columns = 1,
+                                contentBottomPadding = bottomInset
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(7.dp))
+                        Box(
+                            modifier = Modifier
+                                .weight(3f)
+                                .fillMaxHeight()
+                        ) {
+                            // 分栏模式：列表可见，不锁定横屏也不隐藏系统栏
+                            CsvChartScreen(
+                                sessionId = selectedSession!!.session.id,
+                                onBack = { selectedSession = null },
+                                immersive = false
+                            )
+                        }
                     }
-                }
-            } else {
-                Column(modifier = Modifier.fillMaxSize()) {
+                } else {
                     SessionListContent(
                         sessionList = sessionList,
                         onSessionClick = { selectedSession = it },
                         onSessionShare = { shareSession(it.session.id) },
                         onSessionLongClick = { sessionToDelete = it },
                         displayFormat = displayFormat,
+                        state = listState,
+                        columns = listColumns,
                         contentBottomPadding = bottomInset
                     )
                 }
@@ -239,6 +283,9 @@ private fun SessionListContent(
     onSessionShare: (SessionWithCount) -> Unit,
     onSessionLongClick: (SessionWithCount) -> Unit,
     displayFormat: SimpleDateFormat,
+    state: LazyGridState,
+    /** 列数：整屏横屏 2 列，竖屏 / 分栏左栏 1 列 */
+    columns: Int = 1,
     contentBottomPadding: Dp = 0.dp
 ) {
     if (sessionList.isEmpty()) {
@@ -252,8 +299,11 @@ private fun SessionListContent(
             )
         }
     } else {
-        LazyColumn(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columns),
+            state = state,
             verticalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
             contentPadding = PaddingValues(bottom = contentBottomPadding)
         ) {
             items(sessionList, key = { it.session.id }) { item ->
