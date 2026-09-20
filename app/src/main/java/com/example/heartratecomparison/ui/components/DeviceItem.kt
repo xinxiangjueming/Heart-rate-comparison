@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -234,9 +236,36 @@ private fun BatteryIcon(
     }
 }
 
+// Material `Favorite` 基准路径：24×24 视口，内容外接框 20 × 18.35（x 2→22，y 3→21.35）
+private const val HEART_VP_LEFT = 2f
+private const val HEART_VP_TOP = 3f
+private const val HEART_BASE_WIDTH = 20f
+private const val HEART_BASE_HEIGHT = 18.35f
+
+/** Material Icons `Favorite` 心形路径（24×24 视口）；只读复用，绘制时由 DrawScope 缩放 */
+private val heartPath24: Path = Path().apply {
+    moveTo(12f, 21.35f)
+    relativeLineTo(-1.45f, -1.32f)
+    cubicTo(5.4f, 15.36f, 2f, 12.28f, 2f, 8.5f)
+    cubicTo(2f, 5.42f, 4.42f, 3f, 7.5f, 3f)
+    relativeCubicTo(1.74f, 0f, 3.41f, 0.81f, 4.5f, 2.09f)
+    cubicTo(13.09f, 3.81f, 14.76f, 3f, 16.5f, 3f)
+    cubicTo(19.58f, 3f, 22f, 5.42f, 22f, 8.5f)
+    relativeCubicTo(0f, 3.78f, -3.4f, 6.86f, -8.55f, 11.54f)
+    lineTo(12f, 21.35f)
+    close()
+}
+
 /**
- * 自绘心率图标：心形 + 脉搏线
- * 心形固定红色，脉搏线叠加在心形上
+ * 自绘心率图标：等比心形轮廓 + ECG 脉搏线
+ *
+ * 几何口径（均为图标框 w × h 的比例，不做任何非等比拉伸）：
+ * - 心形取 Material `Favorite` 基准路径（24×24 视口内内容占 20 × 18.35，宽高比 1.09），
+ *   等比缩放到 0.94h 高、水平居中 —— 旧实现把心形横向拉到满宽，实际宽高比达 1.72，
+ *   心瓣被压成扁平弧、缺口深达 27%，是"失真"的根因；
+ * - ECG 折线横贯图标宽度，基线 0.58h，R 峰 -0.264h / S 谷 +0.212h，
+ *   与心形轮廓交叉两次，保留原有 22 × 14 dp 构图。
+ * - 颜色一律用实色不透明，不再用低透明度填充（旧实现 20% 填充 + 70% 描边导致整体发虚）。
  */
 @Composable
 private fun HeartRateIcon(
@@ -246,65 +275,48 @@ private fun HeartRateIcon(
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
+        if (w <= 0f || h <= 0f) return@Canvas
 
-        // ── 心形 ──
-        val heartPath = Path().apply {
-            // 心形用两段贝塞尔曲线构成
-            val topY = h * 0.20f
-            val centerX = w * 0.50f
-            val bottomY = h * 0.95f
-            val cuspX = w * 0.06f
-            val cuspY = h * 0.02f
+        // ── 等比心形 ──
+        val heartScale = (h * 0.94f) / HEART_BASE_HEIGHT
+        val heartW = HEART_BASE_WIDTH * heartScale
+        val heartLeft = (w - heartW) / 2f
+        val heartTop = h * 0.03f
 
-            moveTo(centerX, bottomY)
-            // 左半心
-            cubicTo(
-                centerX - w * 0.30f, h * 0.70f,
-                -w * 0.12f, h * 0.35f,
-                cuspX, topY
-            )
-            // 左上圆弧
-            cubicTo(
-                cuspX, cuspY,
-                centerX, cuspY,
-                centerX, topY + h * 0.12f
-            )
-            // 右上圆弧
-            cubicTo(
-                centerX, cuspY,
-                w - cuspX, cuspY,
-                w - cuspX, topY
-            )
-            // 右半心
-            cubicTo(
-                w + w * 0.12f, h * 0.35f,
-                centerX + w * 0.30f, h * 0.70f,
-                centerX, bottomY
-            )
-            close()
+        translate(left = heartLeft, top = heartTop) {
+            scale(scaleX = heartScale, scaleY = heartScale, pivot = Offset.Zero) {
+                translate(left = -HEART_VP_LEFT, top = -HEART_VP_TOP) {
+                    drawPath(
+                        path = heartPath24,
+                        color = color,
+                        style = Stroke(
+                            // 缩放作用域内的线宽会被 heartScale 放大，先除回去
+                            width = 1.25.dp.toPx() / heartScale,
+                            join = StrokeJoin.Round
+                        )
+                    )
+                }
+            }
         }
-        drawPath(heartPath, color = color.copy(alpha = 0.20f), style = Fill)
-        drawPath(heartPath, color = color.copy(alpha = 0.70f), style = Stroke(width = h * 0.06f))
 
-        // ── 脉搏线（叠加在心形中间） ──
-        val pulseY = h * 0.48f
-        val amp = h * 0.18f
+        // ── ECG 脉搏线 ──
+        val baseY = h * 0.58f
         val pulsePath = Path().apply {
-            moveTo(0f, pulseY)
-            lineTo(w * 0.22f, pulseY)
-            // R 波峰
-            lineTo(w * 0.34f, pulseY - amp * 0.55f)
-            lineTo(w * 0.44f, pulseY + amp * 0.80f)
-            lineTo(w * 0.52f, pulseY - amp)
-            lineTo(w * 0.62f, pulseY + amp * 0.45f)
-            lineTo(w * 0.72f, pulseY)
-            lineTo(w, pulseY)
+            moveTo(0f, baseY)
+            lineTo(w * 0.197f, baseY)
+            lineTo(w * 0.273f, baseY - h * 0.057f)
+            lineTo(w * 0.349f, baseY + h * 0.082f)
+            lineTo(w * 0.424f, baseY - h * 0.264f)   // R 峰
+            lineTo(w * 0.500f, baseY + h * 0.212f)   // S 谷
+            lineTo(w * 0.583f, baseY - h * 0.054f)
+            lineTo(w * 0.682f, baseY)
+            lineTo(w, baseY)
         }
         drawPath(
-            pulsePath,
+            path = pulsePath,
             color = color,
             style = Stroke(
-                width = h * 0.07f,
+                width = 1.05.dp.toPx(),
                 cap = StrokeCap.Round,
                 join = StrokeJoin.Round
             )
