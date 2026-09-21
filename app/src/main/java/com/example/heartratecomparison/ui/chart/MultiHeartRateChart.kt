@@ -22,9 +22,11 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.heartratecomparison.R
+import com.example.heartratecomparison.model.HISTORY_WINDOW
 import com.example.heartratecomparison.model.HeartRatePoint
 import com.example.heartratecomparison.ui.theme.LocalChartAxis
 import com.example.heartratecomparison.ui.theme.LocalChartGrid
+import kotlin.math.roundToInt
 
 /** 图表数据更新间隔：数据实际变化且距上次更新 ≥ 该值才重建（限帧） */
 private const val CHART_UPDATE_INTERVAL_MS = 300L
@@ -42,7 +44,7 @@ private data class ChartDataKey(
     val colors: List<Color?>
 )
 
-/** 单设备对齐到并集秒网格后的曲线：values 与 grid 等长，缺失秒已前向填充，首个样本之前为 NaN */
+/** 单设备对齐到绝对秒时间窗后的曲线：values 与 grid 等长，窗口内缺失秒已前向填充，窗口内首个样本之前为 NaN */
 private class ChartSeries(
     val addr: String,
     val color: Color,
@@ -51,7 +53,7 @@ private class ChartSeries(
     val firstIdx: Int
 )
 
-/** 一次限帧重建的绘图帧：grid 为各设备采样秒的并集（升序去重、无人上报的秒被压缩），series 与之对齐 */
+/** 一次限帧重建的绘图帧：grid 为最近 HISTORY_WINDOW 秒内上报过的秒序列（无人上报的秒已压缩，语义同历史回放），series 与之对齐 */
 private class ChartFrame(val grid: LongArray, val series: List<ChartSeries>)
 
 @Composable
@@ -65,6 +67,7 @@ fun MultiHeartRateChart(
     val currentAddresses by rememberUpdatedState(connectedAddresses)
     val currentHistories by rememberUpdatedState(heartRateHistories)
     val currentDeviceColors by rememberUpdatedState(deviceColors)
+    val currentRecordingStart by rememberUpdatedState(recordingStartSecond)
 
     if (connectedAddresses.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -117,16 +120,22 @@ fun MultiHeartRateChart(
         return
     }
 
-    // Y 轴范围：取各连接设备最近 60 点（= 60 秒，每秒最多一点）的极值
-    // （原实现包在 derivedStateOf 中，但读取的是普通参数而非 State，缓存并不生效，直接计算等价）
-    val recentMax = connectedAddresses
-        .flatMap { addr -> heartRateHistories[addr].orEmpty().takeLast(60) }
-        .maxOfOrNull { it.heartRate } ?: 0
-    val yMax = ((((recentMax + 20).coerceAtMost(220) + 9) / 10) * 10).toFloat()
-    val recentMin = connectedAddresses
-        .flatMap { addr -> heartRateHistories[addr].orEmpty().takeLast(60) }
-        .minOfOrNull { it.heartRate } ?: 0
-    val yMin = (((recentMin - 20).coerceAtLeast(40) / 10) * 10).toFloat()
+    // Y 轴范围：最近一个显示窗口（HISTORY_WINDOW 秒 ≈ 5 分钟）内各设备心率的极值，
+    // 上端 = 最大值 × 1.05，下端 = 最小值 × 0.95（未满一窗时窗口起点早于最早样本，即取全部数据）
+    val yWindowEnd = connectedAddresses
+        .maxOfOrNull { heartRateHistories[it]?.lastOrNull()?.second ?: 0L } ?: 0L
+    val yWindowStart = yWindowEnd - (HISTORY_WINDOW - 1)
+    val inWindow = connectedAddresses
+        .flatMap { addr -> heartRateHistories[addr].orEmpty() }
+        .filter { it.second >= yWindowStart }
+    val recentMax = inWindow.maxOfOrNull { it.heartRate } ?: 0
+    val recentMin = inWindow.minOfOrNull { it.heartRate } ?: 0
+    val rawTop = recentMax * 1.05f
+    val rawBottom = recentMin * 0.95f
+    // 退化输入（如全为 0）时兜底扩展，避免零高度分母；下端不为负
+    val yMax = (if (rawTop - rawBottom < 1f) rawTop + 5f else rawTop).roundToInt().toFloat()
+    val yMin = (if (rawTop - rawBottom < 1f) rawBottom - 5f else rawBottom)
+        .coerceAtLeast(0f).roundToInt().toFloat()
     val density = LocalDensity.current
     val isDark = isSystemInDarkTheme()
     val labelColor = if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
@@ -135,8 +144,9 @@ fun MultiHeartRateChart(
 
     // 限帧更新（事件驱动，替代原 100ms 轮询）：仅在数据指纹变化时调度重建，
     // 距上次更新不足 300ms 则先等待；等待期间指纹再变会取消本协程并由新协程接手 → 天然合并。
-    // 重建时把各设备历史对齐到"并集秒网格"（语义与历史回放 CsvChartDialog 一致）：
-    // 无人上报的秒被压缩，设备缺失的秒沿用上一秒值（前向填充），首个样本之前不绘制。
+    // 重建时先按"最近 HISTORY_WINDOW 秒（≈5 分钟）"剔除窗口外样本，再把窗口内上报过的秒
+    // 组成 X 网格（无人上报的秒压缩，语义同历史回放）：窗口内设备缺失的秒沿用上一秒值
+    // （前向填充），首个样本之前不绘制。持续上报的设备满窗样本从左端覆盖，曲线铺满全宽。
     var lastUpdateTime by remember { mutableLongStateOf(0L) }
     var chartFrame by remember { mutableStateOf(ChartFrame(LongArray(0), emptyList())) }
     val dataKey = ChartDataKey(
@@ -158,29 +168,44 @@ fun MultiHeartRateChart(
         chartFrame = if (drawable.isEmpty()) {
             ChartFrame(LongArray(0), emptyList())
         } else {
-            val grid = sortedSetOf<Long>()
-            drawable.forEach { (_, pts) -> pts.forEach { grid.add(it.second) } }
-            val seconds = grid.toLongArray()
-            val series = drawable.map { (addr, pts) ->
-                val values = FloatArray(seconds.size) { Float.NaN }
-                var p = 0
-                pts.forEach { point ->
-                    while (seconds[p] < point.second) p++
-                    values[p] = point.heartRate.toFloat()
-                }
-                var carry = Float.NaN
-                for (i in values.indices) {
-                    val v = values[i]
-                    if (!v.isNaN()) carry = v else if (!carry.isNaN()) values[i] = carry
-                }
-                ChartSeries(
-                    addr = addr,
-                    color = currentDeviceColors[addr] ?: Color.Gray,
-                    values = values,
-                    firstIdx = values.indexOfFirst { !it.isNaN() }
-                )
+            // 右端 = 各设备最新样本秒；左端 = 右端前推 (HISTORY_WINDOW-1) 秒（≈5 分钟），
+            // 未满一窗时退回录制开始（无录制基准则最早样本秒）。
+            // 窗口末端钳制不晚于最新秒：录制中时钟回调等异常下保证窗口长度 ≥ 1。
+            val windowEnd = drawable.maxOf { (_, pts) -> pts.last().second }
+            val base = currentRecordingStart ?: drawable.minOf { (_, pts) -> pts.first().second }
+            val windowStart = maxOf(base, windowEnd - (HISTORY_WINDOW - 1)).coerceAtMost(windowEnd)
+            val windowed = drawable.mapNotNull { (addr, pts) ->
+                val win = pts.filter { it.second >= windowStart }
+                if (win.size < 2) null else addr to win   // 窗口内样本不足（长期未上报的设备）
             }
-            ChartFrame(seconds, series)
+            if (windowed.isEmpty()) {
+                ChartFrame(LongArray(0), emptyList())
+            } else {
+                // X 网格 = 窗口内上报过的秒（无人上报的秒压缩，语义同历史回放）
+                val grid = sortedSetOf<Long>()
+                windowed.forEach { (_, pts) -> pts.forEach { grid.add(it.second) } }
+                val seconds = grid.toLongArray()
+                val series = windowed.map { (addr, pts) ->
+                    val values = FloatArray(seconds.size) { Float.NaN }
+                    var p = 0
+                    pts.forEach { point ->
+                        while (seconds[p] < point.second) p++
+                        values[p] = point.heartRate.toFloat()
+                    }
+                    var carry = Float.NaN
+                    for (i in values.indices) {
+                        val v = values[i]
+                        if (!v.isNaN()) carry = v else if (!carry.isNaN()) values[i] = carry
+                    }
+                    ChartSeries(
+                        addr = addr,
+                        color = currentDeviceColors[addr] ?: Color.Gray,
+                        values = values,
+                        firstIdx = values.indexOfFirst { !it.isNaN() }
+                    )
+                }
+                ChartFrame(seconds, series)
+            }
         }
         lastUpdateTime = System.currentTimeMillis()
     }
@@ -242,8 +267,8 @@ fun MultiHeartRateChart(
                 drawLine(axisColor, Offset(0f, 0f), Offset(0f, height), strokeWidth = 3f)
                 drawLine(axisColor, Offset(0f, height), Offset(width, height), strokeWidth = 3f)
 
-                // 水平网格线（虚线，跳过最底部与X轴重合的线）
-                for (bpm in (yMin.toInt() + 10)..yMax.toInt() step 10) {
+                // 水平网格线（虚线，取 10 的整数倍刻度，跳过最底部与X轴重合的线）
+                for (bpm in ((yMin.toInt() / 10) + 1) * 10..yMax.toInt() step 10) {
                     val y = height - (bpm - yMin) / (yMax - yMin) * height
                     drawLine(gridColor, Offset(0f, y), Offset(width, y), strokeWidth = 1f, pathEffect = dashEffect)
                 }
@@ -255,7 +280,7 @@ fun MultiHeartRateChart(
                     drawLine(gridColor, Offset(x, 0f), Offset(x, height), strokeWidth = 1f, pathEffect = dashEffect)
                 }
 
-                // 严格逐秒网格绘制：所有曲线对齐同一网格，X 按网格索引均分（语义同历史回放）
+                // 窗口绘制：所有曲线对齐同一网格，X 按网格索引均分（网格为最近 HISTORY_WINDOW 秒内上报过的秒）
                 val frame = chartFrame
                 if (frame.grid.size >= 2) {
                     val gridMaxIdx = frame.grid.size - 1

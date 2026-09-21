@@ -15,6 +15,7 @@ import com.example.heartratecomparison.R
 import com.example.heartratecomparison.data.CsvRecorder
 import com.example.heartratecomparison.model.DeviceInfo
 import com.example.heartratecomparison.model.DeviceState
+import com.example.heartratecomparison.model.HISTORY_WINDOW
 import com.example.heartratecomparison.model.HeartRatePoint
 import com.example.heartratecomparison.model.UiDeviceState
 import kotlinx.coroutines.*
@@ -61,8 +62,8 @@ class HeartRateService : Service() {
 
         /** 心率状态合并发射窗口：首个变化后延迟该时长统一发射，窗口内变化合并，空闲零轮询 */
         private const val THROTTLE_MS = 120L
-        /** 单设备内存历史上限 */
-        private const val HISTORY_MAX = 300
+        /** 单设备内存历史上限（= model.HISTORY_WINDOW，实时图表显示窗口与之共用） */
+        private const val HISTORY_MAX = HISTORY_WINDOW
 
         /** 供静态 releaseMemory() 访问实例（onCreate 赋值 / onDestroy 置空） */
         @Volatile
