@@ -13,11 +13,10 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
 import android.util.Log
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.only
@@ -29,8 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,11 +40,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.heartratecomparison.R
 import com.example.heartratecomparison.bluetooth.HeartRateService
+import com.example.heartratecomparison.ui.ClipReveal
 import com.example.heartratecomparison.ui.chart.MultiHeartRateChart
 import com.example.heartratecomparison.ui.components.LeftPanel
 import com.example.heartratecomparison.ui.common.GlassAlertDialog
 import com.example.heartratecomparison.ui.common.DeviceInfoDialog
 import com.example.heartratecomparison.ui.theme.ChartColors
+import com.example.heartratecomparison.ui.theme.HeartRateComparisonTheme
 import com.example.heartratecomparison.ui.screen.SplashScreen
 
 private const val TAG = "MainScreen"
@@ -84,7 +87,9 @@ fun MainScreen() {
     val hasConnectedDevices = deviceStates.values.any { it.isConnected }
 
     var showExitDialog by remember { mutableStateOf(false) }
-    var showHistory by remember { mutableStateOf(false) }
+    // 历史界面覆盖层（sportlink ClipReveal 上下展开/收回）：非 null = 覆盖层已挂载，
+    // 值 = 被点历史按钮垂直中心的窗口 Y（展开锚点线）；收拢动画结束才置 null
+    var historyAnchorY by remember { mutableStateOf<Float?>(null) }
     // 设备信息弹窗：点击已连接设备时打开（null = 关闭）
     var infoDialogAddress by remember { mutableStateOf<String?>(null) }
     val deviceInfoMap by HeartRateService.globalDeviceInfoState.collectAsState()
@@ -190,26 +195,17 @@ fun MainScreen() {
         }
     }
 
-    // 历史页面（预测性返回动画）
-    BackHandler(enabled = showHistory) { showHistory = false }
-    AnimatedContent(
-        targetState = showHistory,
-        transitionSpec = {
-            if (targetState) {
-                // 进入历史：从右滑入
-                slideInHorizontally(tween(500)) { it } + fadeIn(tween(500)) togetherWith
-                    slideOutHorizontally(tween(500)) { -it / 3 } + fadeOut(tween(250))
-            } else {
-                // 返回主页：从左滑回（预测性返回手势方向）
-                slideInHorizontally(tween(500)) { -it / 3 } + fadeIn(tween(500)) togetherWith
-                    slideOutHorizontally(tween(500)) { it } + fadeOut(tween(250))
-            }
-        },
-        label = "history_transition"
-    ) { isHistory ->
-        if (isHistory) {
-            HistoryScreen(onBack = { showHistory = false })
-        } else {
+    // 历史界面（sportlink ClipReveal 上下展开/收回）：
+    // 点击历史按钮 → 从按钮垂直中心线向上下撑开铺满全屏；左滑返回手势 / 返回键 /
+    // 页内返回沿原路收回到该线。覆盖层自管返回分发（见 ui/ClipReveal.kt），无需 BackHandler。
+    historyAnchorY?.let { anchorY ->
+        HistoryRevealOverlay(
+            anchorYInWindow = anchorY,
+            backgroundColor = MaterialTheme.colorScheme.background,
+            onClosed = { historyAnchorY = null },
+        )
+    }
+
             // 共享的回调：remember 固定实例（捕获项均为生命周期恒定值），使 LeftPanel/DeviceItem
             // 能按参数相等跳过重组，让 UiDeviceState 稳定化的收益真正落地
             val onScanClick: () -> Unit = remember {
@@ -309,7 +305,7 @@ fun MainScreen() {
                             onScanClick = onScanClick,
                             onStartRecord = onStartRecord,
                             onStopRecord = onStopRecord,
-                            onShowHistory = { showHistory = true },
+                            onShowHistory = { anchorY -> historyAnchorY = anchorY },
                             onDeviceClick = onDeviceClick,
                             onIconClick = onIconClick,
                             onIconLongClick = onIconLongClick
@@ -345,7 +341,7 @@ fun MainScreen() {
                             onScanClick = onScanClick,
                             onStartRecord = onStartRecord,
                             onStopRecord = onStopRecord,
-                            onShowHistory = { showHistory = true },
+                            onShowHistory = { anchorY -> historyAnchorY = anchorY },
                             onDeviceClick = onDeviceClick,
                             onIconClick = onIconClick,
                             onIconLongClick = onIconLongClick
@@ -369,6 +365,46 @@ fun MainScreen() {
                     }
                 }
             }
+}
+
+/**
+ * 历史界面覆盖层（sportlink ClipReveal 上下展开/收回，见 ui/ClipReveal.kt）：
+ * 从 [anchorYInWindow]（被点历史按钮垂直中心的窗口 Y）向上下撑开铺满全屏，
+ * 左滑返回手势 / 返回键 / 页内返回沿原路收拢；收拢动画结束后才回调 [onClosed]
+ * 清 MainScreen 的覆盖层状态（时序与 sportlink DeviceDetailOverlay 一致）。
+ */
+@Composable
+private fun HistoryRevealOverlay(
+    anchorYInWindow: Float,
+    backgroundColor: Color,
+    onClosed: () -> Unit,
+) {
+    // setContent 下 LocalContext 就是 MainActivity（ComponentActivity）
+    val activity = LocalContext.current as? ComponentActivity
+    // 只以 activity + 锚点为 key：覆盖层存续期间重启 effect 会重复挂载/立即收拢
+    DisposableEffect(activity, anchorYInWindow) {
+        val holder = activity?.let {
+            ClipReveal.openRevealAt(
+                activity = it,
+                anchorYInWindow = anchorYInWindow,
+                onClosed = onClosed,
+                // 容器底色传 Compose 侧页面背景：XML 主题是深色 Theme.Material，解析
+                // colorBackground 得到深色，浅色模式下会与历史页底色穿帮
+                backgroundColor = backgroundColor.toArgb(),
+                createContent = { ctx, close ->
+                    ComposeView(ctx).apply {
+                        setContent {
+                            HeartRateComparisonTheme {
+                                // onBack = close：页内返回按钮与历史列表态的 BackHandler
+                                // 都经它触发反向收拢；图表态的 BackHandler 仍回列表
+                                HistoryScreen(onBack = close)
+                            }
+                        }
+                    }
+                },
+            )
         }
+        // 宿主组合销毁（Activity 重建/销毁）：跳过动画立即移除；已正常收拢时为 no-op
+        onDispose { holder?.dismissNow() }
     }
 }

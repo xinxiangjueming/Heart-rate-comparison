@@ -19,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.heartratecomparison.R
@@ -46,7 +48,7 @@ fun LeftPanel(
     onScanClick: () -> Unit,
     onStartRecord: () -> Unit,
     onStopRecord: () -> Unit,
-    onShowHistory: () -> Unit,
+    onShowHistory: (anchorYInWindow: Float) -> Unit,
     onDeviceClick: (UiDeviceState) -> Unit,
     onIconClick: (UiDeviceState) -> Unit,
     onIconLongClick: (UiDeviceState) -> Unit
@@ -54,6 +56,10 @@ fun LeftPanel(
     // 长按停止的进度（0→1，3 秒走满触发停止）
     val stopProgress = remember { Animatable(0f) }
     var stopPressing by remember { mutableStateOf(false) }
+
+    // 历史按钮垂直中心的窗口坐标：点击时作为 ClipReveal 上下展开的锚点线传出
+    // （edge-to-edge 全屏窗口，positionInWindow() 与窗口坐标原点一致）
+    var historyAnchorYInWindow by remember { mutableStateOf(0f) }
 
     Column(
         modifier = modifier.padding(8.dp)
@@ -63,12 +69,15 @@ fun LeftPanel(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // 1. 历史（最左）：点击查看历史
+            // 1. 历史（最左）：点击查看历史（从本按钮中心线上下展开）
             IconButton(
-                onClick = onShowHistory,
+                onClick = { onShowHistory(historyAnchorYInWindow) },
                 modifier = Modifier
                     .weight(1f)
                     .height(48.dp)
+                    .onGloballyPositioned { coords ->
+                        historyAnchorYInWindow = coords.positionInWindow().y + coords.size.height / 2f
+                    }
             ) {
                 Icon(
                     imageVector = Icons.Filled.History,
