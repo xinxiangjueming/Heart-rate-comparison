@@ -2,6 +2,7 @@ package com.example.heartratecomparison.ui.screen
 
 import android.Manifest
 import android.app.Activity
+import android.graphics.Rect
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -87,9 +88,9 @@ fun MainScreen() {
     val hasConnectedDevices = deviceStates.values.any { it.isConnected }
 
     var showExitDialog by remember { mutableStateOf(false) }
-    // 历史界面覆盖层（sportlink ClipReveal 上下展开/收回）：非 null = 覆盖层已挂载，
-    // 值 = 被点历史按钮垂直中心的窗口 Y（展开锚点线）；收拢动画结束才置 null
-    var historyAnchorY by remember { mutableStateOf<Float?>(null) }
+    // 历史界面覆盖层（sportlink 同款圆形扩散/收回）：非 null = 覆盖层已挂载，
+    // 值 = 被点历史图标处 40dp 圆的窗口外接矩形（展开起点）；收拢动画结束才置 null
+    var historyAnchorRect by remember { mutableStateOf<Rect?>(null) }
     // 设备信息弹窗：点击已连接设备时打开（null = 关闭）
     var infoDialogAddress by remember { mutableStateOf<String?>(null) }
     val deviceInfoMap by HeartRateService.globalDeviceInfoState.collectAsState()
@@ -195,14 +196,14 @@ fun MainScreen() {
         }
     }
 
-    // 历史界面（sportlink ClipReveal 上下展开/收回）：
-    // 点击历史按钮 → 从按钮垂直中心线向上下撑开铺满全屏；左滑返回手势 / 返回键 /
-    // 页内返回沿原路收回到该线。覆盖层自管返回分发（见 ui/ClipReveal.kt），无需 BackHandler。
-    historyAnchorY?.let { anchorY ->
+    // 历史界面（sportlink 同款圆形一镜到底）：
+    // 点击历史图标 → 从图标处的圆向外扩散铺满全屏；左滑返回手势 / 返回键 /
+    // 页内返回沿同一几何收拢回该圆。覆盖层自管返回分发（见 ui/ClipReveal.kt）。
+    historyAnchorRect?.let { anchorRect ->
         HistoryRevealOverlay(
-            anchorYInWindow = anchorY,
+            anchorRectInWindow = anchorRect,
             backgroundColor = MaterialTheme.colorScheme.background,
-            onClosed = { historyAnchorY = null },
+            onClosed = { historyAnchorRect = null },
         )
     }
 
@@ -305,7 +306,7 @@ fun MainScreen() {
                             onScanClick = onScanClick,
                             onStartRecord = onStartRecord,
                             onStopRecord = onStopRecord,
-                            onShowHistory = { anchorY -> historyAnchorY = anchorY },
+                            onShowHistory = { rect -> historyAnchorRect = rect },
                             onDeviceClick = onDeviceClick,
                             onIconClick = onIconClick,
                             onIconLongClick = onIconLongClick
@@ -341,7 +342,7 @@ fun MainScreen() {
                             onScanClick = onScanClick,
                             onStartRecord = onStartRecord,
                             onStopRecord = onStopRecord,
-                            onShowHistory = { anchorY -> historyAnchorY = anchorY },
+                            onShowHistory = { rect -> historyAnchorRect = rect },
                             onDeviceClick = onDeviceClick,
                             onIconClick = onIconClick,
                             onIconLongClick = onIconLongClick
@@ -368,26 +369,25 @@ fun MainScreen() {
 }
 
 /**
- * 历史界面覆盖层（sportlink ClipReveal 上下展开/收回，见 ui/ClipReveal.kt）：
- * 从 [anchorYInWindow]（被点历史按钮垂直中心的窗口 Y）向上下撑开铺满全屏，
- * 左滑返回手势 / 返回键 / 页内返回沿原路收拢；收拢动画结束后才回调 [onClosed]
- * 清 MainScreen 的覆盖层状态（时序与 sportlink DeviceDetailOverlay 一致）。
+ * 历史界面覆盖层（sportlink 同款圆形一镜到底，见 ui/ClipReveal.kt）：
+ * 从 [anchorRectInWindow]（被点历史图标处 40dp 圆的窗口外接矩形）向外扩散铺满全屏，
+ * 左滑返回手势 / 返回键 / 页内返回沿同一几何收拢回该圆；收拢动画结束后才回调
+ * [onClosed] 清 MainScreen 的覆盖层状态。
  */
 @Composable
 private fun HistoryRevealOverlay(
-    anchorYInWindow: Float,
+    anchorRectInWindow: Rect,
     backgroundColor: Color,
     onClosed: () -> Unit,
 ) {
     // setContent 下 LocalContext 就是 MainActivity（ComponentActivity）
     val activity = LocalContext.current as? ComponentActivity
     // 只以 activity + 锚点为 key：覆盖层存续期间重启 effect 会重复挂载/立即收拢
-    DisposableEffect(activity, anchorYInWindow) {
+    DisposableEffect(activity, anchorRectInWindow) {
         val holder = activity?.let {
             ClipReveal.openRevealAt(
                 activity = it,
-                anchorYInWindow = anchorYInWindow,
-                onClosed = onClosed,
+                anchorRectInWindow = anchorRectInWindow,
                 // 容器底色传 Compose 侧页面背景：XML 主题是深色 Theme.Material，解析
                 // colorBackground 得到深色，浅色模式下会与历史页底色穿帮
                 backgroundColor = backgroundColor.toArgb(),
@@ -402,6 +402,7 @@ private fun HistoryRevealOverlay(
                         }
                     }
                 },
+                onClosed = onClosed,
             )
         }
         // 宿主组合销毁（Activity 重建/销毁）：跳过动画立即移除；已正常收拢时为 no-op

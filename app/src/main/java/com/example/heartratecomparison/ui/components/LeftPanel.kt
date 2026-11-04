@@ -1,5 +1,6 @@
 package com.example.heartratecomparison.ui.components
 
+import android.graphics.Rect
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -21,6 +22,7 @@ import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.heartratecomparison.R
@@ -48,7 +50,7 @@ fun LeftPanel(
     onScanClick: () -> Unit,
     onStartRecord: () -> Unit,
     onStopRecord: () -> Unit,
-    onShowHistory: (anchorYInWindow: Float) -> Unit,
+    onShowHistory: (anchorRectInWindow: Rect) -> Unit,
     onDeviceClick: (UiDeviceState) -> Unit,
     onIconClick: (UiDeviceState) -> Unit,
     onIconLongClick: (UiDeviceState) -> Unit
@@ -57,9 +59,11 @@ fun LeftPanel(
     val stopProgress = remember { Animatable(0f) }
     var stopPressing by remember { mutableStateOf(false) }
 
-    // 历史按钮垂直中心的窗口坐标：点击时作为 ClipReveal 上下展开的锚点线传出
-    // （edge-to-edge 全屏窗口，positionInWindow() 与窗口坐标原点一致）
-    var historyAnchorYInWindow by remember { mutableStateOf(0f) }
+    // 历史按钮的窗口矩形：点击时以按钮中心构造 40dp 圆的外接矩形传出，作为
+    // ClipReveal 圆形扩散的起点（edge-to-edge 全屏窗口，positionInWindow 与窗口原点一致）
+    var historyButtonRectInWindow by remember { mutableStateOf<Rect?>(null) }
+    // 锚点圆半径：与 sportlink 设置齿轮的 40dp 圆形按钮同规格（半径 20dp）
+    val anchorRadiusPx = with(LocalDensity.current) { 20.dp.toPx() }
 
     Column(
         modifier = modifier.padding(8.dp)
@@ -69,14 +73,33 @@ fun LeftPanel(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // 1. 历史（最左）：点击查看历史（从本按钮中心线上下展开）
+            // 1. 历史（最左）：点击查看历史（从本图标处的圆向外扩散铺满全屏）
             IconButton(
-                onClick = { onShowHistory(historyAnchorYInWindow) },
+                onClick = {
+                    val r = historyButtonRectInWindow
+                    if (r != null) {
+                        val cx = r.exactCenterX()
+                        val cy = r.exactCenterY()
+                        onShowHistory(
+                            Rect(
+                                (cx - anchorRadiusPx).toInt(),
+                                (cy - anchorRadiusPx).toInt(),
+                                (cx + anchorRadiusPx).toInt(),
+                                (cy + anchorRadiusPx).toInt(),
+                            )
+                        )
+                    }
+                },
                 modifier = Modifier
                     .weight(1f)
                     .height(48.dp)
                     .onGloballyPositioned { coords ->
-                        historyAnchorYInWindow = coords.positionInWindow().y + coords.size.height / 2f
+                        val p = coords.positionInWindow()
+                        historyButtonRectInWindow = Rect(
+                            p.x.toInt(), p.y.toInt(),
+                            (p.x + coords.size.width).toInt(),
+                            (p.y + coords.size.height).toInt(),
+                        )
                     }
             ) {
                 Icon(
