@@ -1,290 +1,239 @@
-# 心率对比工具
+# 心率对比工具 / Heart Rate Comparison
 
-一款 Android 应用，用于同时连接多个蓝牙心率设备，实时对比心率数据，数据以 Room 数据库形式保存在应用私有目录，可导出带统计总结的 CSV 文件。
+一款基于 Kotlin + Jetpack Compose 的 Android 应用：同时连接多台 BLE 心率设备，实时对比心率曲线，把采集数据按秒聚合写入 Room 私有数据库，支持历史回放、CSV 导入导出与分享。全部数据存放在应用私有目录，**不需要任何存储权限**。
 
 ## 功能
 
-- **开屏动画**：粒子聚合心形 + ECG 心电图描线动画，科技感启动体验
-- **多设备连接**：同时连接多个蓝牙心率传感器
-- **设备电量读取**：自动读取 BLE 设备电池电量，设备卡片中以自绘电池图标 + 百分比显示
-- **自绘设备图标**：电池图标随电量动态填充（绿 >50% / 橙 20-50% / 红 <20%），心率图标为心形 + ECG 脉搏线
-- **实时图表**：实时显示各设备心率曲线，带渐变填充色，限帧 + 降采样保证流畅
-- **Room 数据存储**：心率数据按秒聚合写入 Room 数据库（应用私有目录，无需任何存储权限）
-- **自动保存**：每 5 秒强制落库（含当前秒缓冲），后台被杀最多丢 ≤5 秒数据
-- **电量快照**：记录起始电量 + 录制中每 30 秒自动重读 + 结束电量，电量变化自动记录
-- **会话总结**：每次记录自动汇总每设备有效样本数、平均心率、时长（存 Room，导出时随 CSV 输出）
-- **数据记录**：点击记录图标开始，**长按 3 秒停止**（带进度环反馈，防误触）
-- **历史查看**：浏览历史记录（单击查看图表、双击分享、长按删除）
-- **CSV 导出**：分享时动态生成 CSV 文件（UTF-8 BOM，中文设备名不乱码），末尾附 `Summary:` 汇总区（英文标签：Samples / Start Battery / End Battery / Avg HR / Duration / Start/End Time）
-- **图表回放**：支持缩放、滑动手势查看历史数据，曲线带渐变填充
-- **多语言支持**：简体中文、English、日本語、한국어、Deutsch、Français、繁體中文（7 种语言）
-- **深色/浅色主题**：跟随系统主题自动切换，深色下图表区与背景分层清晰
-- **大屏适配**：支持折叠屏、平板横竖屏自适应布局；历史页大屏分栏（左列表 + 右图表）
-- **HyperOS 适配**：适配小米折叠屏连续性、Flip 外屏、沉浸式状态栏、系统内存预警释放
+### 连接与采集
+- **多设备同时连接**：BLE 扫描（15 秒超时，按 Heart Rate Service `0x180D` 过滤），可同时保持多路 GATT 连接
+- **心率解析**：支持 Heart Rate Measurement 的 8-bit / 16-bit 格式
+- **设备电量**：连接时读取 Battery Service `0x180F`，缺失时回退 Device Information Service `0x180A`；录制中每 30 秒重读
+- **设备信息**：读取 DIS 的厂商、型号、序列号、固件与软件版本，在设备信息弹窗中展示
+
+### 实时展示
+- **多设备曲线**：Canvas 自绘，300 秒窗口，300ms 限帧、按绝对秒对齐、缺失值前向填充、渐变填充与 10 色调色盘
+- **设备卡片**：自绘电池图标（绿 / 橙 / 红三档）与等比心形 + ECG 脉搏线心率图标
+- **开屏动画**：160 个粒子聚合成心形，叠加 ECG 描线，约 3.8 秒
+- **主题与适配**：跟随系统深浅色、动态读取屏幕圆角；横屏 1:3、平板 1:2、竖屏 1:1 自适应；edge-to-edge 沉浸式系统栏
+- **HyperOS 适配**：折叠屏连续性、Flip 外屏、平行窗口 meta-data、系统内存预警时释放图表历史缓存
+
+### 录制与存储
+- **Room 持久化**：`heartrate.db`（数据库版本 3），三张表 `sessions` / `hr_samples` / `battery_snapshots`
+- **自动保存**：秒级聚合 + 独立协程每 5 秒强制落库（含当前秒缓冲、会话汇总、电量快照），进程被杀最多丢约 5 秒
+- **同秒去重**：`hr_samples` 唯一索引 `(sessionId, second, deviceAddress)`，写入用 REPLACE
+- **电量快照**：起始电量、录制中每 30 秒变化值、结束电量，同值去重
+- **会话总结**：每设备有效样本数、全局平均心率、时长，随 5 秒强刷更新，停止时最终修正
+
+### 历史与数据交换
+- **历史列表**：横屏两列网格、平板分栏（左列表 + 右图表）、旋转淡入淡出过渡；单击查看图表，右侧分享图标导出，长按删除（二次确认）
+- **图表回放**：Room 数据源，双指缩放 1–20 倍、底部滑块平移、单指按住显示当秒读数、图例显隐；全屏查看时锁定横屏并隐藏系统栏
+- **CSV 导出**：分享时动态生成，UTF-8 BOM 保证中文设备名不乱码，末尾附 `Summary:` 汇总区（Samples / Start Battery / End Battery / Avg HR / Duration / Start / End Time），经 FileProvider 以 `ACTION_SEND` 分享
+- **CSV 导入**：作为系统「用其他应用打开」的接收端（`ACTION_VIEW`，5 组 intent-filter 覆盖 MIME 与 content/file 的 `.csv`），流式解析本应用导出格式后写入 Room 并直接打开图表
+
+### 交互
+- 主界面三个等宽图标按钮：历史（蓝）、搜索、记录
+- 记录：点击开始（无已连接设备时置灰），**记录中长按 3 秒停止**，按住时显示进度环，防误触
+- **一镜到底转场**：点击历史图标，页面从图标处 40dp 圆扩散铺满全屏，返回沿同一几何收拢（见下节）
 
 ## 系统要求
 
-- Android 8.0+（API 26）
-- 蓝牙 4.0+（BLE）
+- Android 8.0+（API 26），蓝牙 4.0+（BLE）
+- 构建：JDK 17、Android SDK 34、Gradle 8.2（wrapper 已带校验和）
 
 ## 技术栈
 
-| 类别 | 技术 |
-|------|------|
-| 语言 | Kotlin |
-| UI 框架 | Jetpack Compose + Material 3 |
-| 持久化 | **Room 数据库**（SQLite） |
-| 蓝牙通信 | Android BLE API |
-| 异步处理 | Kotlin Coroutines + Flow |
-| 最低 SDK | 26（Android 8.0） |
-| 目标 SDK | 34（Android 14） |
+| 类别 | 版本 / 技术 |
+|---|---|
+| 语言 | Kotlin 1.9.22 |
+| 构建 | Android Gradle Plugin 8.2.0、Gradle 8.2、KSP 1.9.22-1.0.17 |
+| UI | Jetpack Compose BOM 2024.02.00 + Material 3 |
+| 持久化 | Room 2.6.1（runtime / ktx / compiler，注解处理走 KSP） |
+| 异步 | Kotlin Coroutines 1.7.3 + StateFlow / Channel |
+| 蓝牙 | Android 标准 BLE API，无第三方 BLE 库 |
+| SDK | minSdk 26 / compileSdk 34 / targetSdk 34；versionCode 1，versionName 1.0 |
+| 发布配置 | release 开启 R8 混淆（`isMinifyEnabled`）与资源压缩；**未配置 signingConfigs** |
 
-## 技术架构
+> `gradle/libs.versions.toml` 中的版本号当前**未被任何构建脚本引用**，实际版本以根 `build.gradle.kts`、`app/build.gradle.kts` 的硬编码为准，不要按 toml 判断工具链版本。
 
-### 整体架构
+## 架构
 
-采用 **单 Activity + Compose** 架构，`HeartRateService` 前台服务管理蓝牙连接和数据采集，UI 层通过 `StateFlow` 响应式更新（心率状态 **120ms 节流合并发射 + 增量快照**，避免高频全量拷贝）。
+单 Activity + Compose；`HeartRateService` 前台服务持有蓝牙连接与全局状态，UI 通过三个静态 `StateFlow` 订阅，命令通过 `startService(Intent(action))` 下发（不 `bindService`）。
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    UI Layer (Compose)                │
-│  SplashScreen ── MainScreen ── HistoryScreen        │
-│  LeftPanel / DeviceItem / MultiHeartRateChart       │
-│       │                                             │
-│       │ collectAsState()                            │
-│       ▼                                             │
-│  HeartRateService.globalUiState (StateFlow)         │
-├─────────────────────────────────────────────────────┤
-│                 Service Layer                        │
-│  HeartRateService (Foreground Service)               │
-│       ├── BluetoothScanner (BLE 扫描)                │
-│       ├── BluetoothConnector (GATT + 电量读取)        │
-│       ├── HeartRateParser (数据解析)                  │
-│       └── CsvRecorder (Room 写入，5s 强刷 + 汇总)     │
-├─────────────────────────────────────────────────────┤
-│                 Data Layer (Room)                    │
-│  HeartRateDatabase ── RecordDao                      │
-│       ├── sessions（会话 + 汇总字段）                 │
-│       ├── hr_samples（心率样本，唯一索引防重复）       │
-│       └── battery_snapshots（电量快照）               │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────── UI Layer (Compose) ────────────────────────┐
+│  SplashScreen → MainScreen → HistoryScreen → CsvChartScreen         │
+│  LeftPanel / DeviceItem / MultiHeartRateChart / DeviceInfoDialog     │
+│           collectAsState()                                          │
+│  globalUiState(卡片) · globalHistoryState(图表) · globalDeviceInfo   │
+├──────────────────────── Service Layer ─────────────────────────────┤
+│  HeartRateService (前台服务, connectedDevice)                        │
+│    ├─ BluetoothScanner      BLE 扫描                                │
+│    ├─ BluetoothConnector    GATT / 心率通知 / 电量 / DIS              │
+│    ├─ HeartRateParser       心率字节解析                              │
+│    └─ CsvRecorder           录制 Channel → Room                      │
+├──────────────────────── Data Layer (Room v3) ──────────────────────┤
+│  HeartRateDatabase → RecordDao                                       │
+│    sessions · hr_samples · battery_snapshots                         │
+│  CsvExporter（导出/分享） · CsvImporter（ACTION_VIEW 导入）            │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 核心模块说明
+**数据流**：BLE 回调 → `HeartRateParser` → `HeartRateService` 按秒聚合进 `ArrayDeque<HeartRatePoint>` → 事件驱动节流（120ms，空闲零轮询）→ 三路增量快照 StateFlow → Compose。录制侧同一份心率数据进 `CsvRecorder` 的 `Channel(UNLIMITED)`，由单消费者 IO 协程写库。
 
-| 模块 | 文件 | 职责 |
-|------|------|------|
-| **蓝牙扫描** | `BluetoothScanner.kt` | BLE 设备发现，扫描附近心率传感器 |
-| **蓝牙连接** | `BluetoothConnector.kt` | GATT 连接管理，订阅心率通知，读取/周期重读电量 |
-| **数据解析** | `HeartRateParser.kt` | 解析 BLE Heart Rate Profile 原始字节数据 |
-| **前台服务** | `HeartRateService.kt` | 多设备连接生命周期、全局状态（节流发射）、录制控制、30s 电量刷新循环 |
-| **数据录制** | `CsvRecorder.kt` | 秒级聚合 + 5 秒强刷写 Room；电量去重快照；会话汇总统计 |
-| **数据库** | `HeartRateDatabase.kt` / `RecordDao.kt` | Room 实例（私有目录）与 DAO（含 Migration v1→v2） |
-| **数据模型** | `RecordSession.kt` / `HrSample.kt` / `BatterySnapshot.kt` | 会话、心率样本、电量快照实体 |
-| **CSV 导出** | `CsvExporter.kt` | 会话 → 带 Summary 汇总区的 CSV（UTF-8 BOM） |
-| **设备状态** | `DeviceState.kt` / `UiDeviceState.kt` | 设备连接状态、心率历史（ArrayDeque）与 UI 数据模型 |
+**线程模型**：主线程负责状态发射与 UI；BLE 回调走 `Dispatchers.Default.limitedParallelism(1)` 串行化；数据库与文件 IO 走 `Dispatchers.IO`。详见仓库中的 `THREADING_REFACTOR.md`——注意该文档写于 CSV 文件存储时代，其中 `parseCsv(file)` 等描述与当前 Room 实现不符，应作为**历史设计文档**阅读。
 
-### UI 模块说明
+### 模块职责
 
-| 模块 | 文件 | 职责 |
-|------|------|------|
-| **开屏动画** | `SplashScreen.kt` | 粒子聚合心形 + ECG 心电图描线启动动画 |
-| **主页面** | `MainScreen.kt` | 横竖屏自适应布局（横屏避开系统栏，不侵入状态栏） |
-| **左侧面板** | `LeftPanel.kt` | 三图标操作区（历史/搜索/记录）+ 设备列表 |
-| **设备卡片** | `DeviceItem.kt` | 自绘电池图标 + 心率图标；连接后信息行淡入展开动画 |
-| **实时图表** | `MultiHeartRateChart.kt` | Canvas 自绘多设备心率曲线（限帧 + 降采样 + 渐变填充） |
-| **历史页面** | `HistoryScreen.kt` | Room 会话列表，单击看图表 / 双击分享 CSV / 长按删除 |
-| **CSV 图表** | `CsvChartDialog.kt` | 历史数据回放（Room 数据源，缩放/平移/渐变填充），全屏查看时隐藏系统栏 |
-| **系统栏** | `NavigationBarHelper.kt` | edge-to-edge 沉浸统一处理（Android 10~14 小白条适配） |
-| **主题** | `Theme.kt` / `Color.kt` / `Type.kt` | Material 3 主题、10 色图表调色盘、动态屏幕圆角 |
+| 路径（相对 `app/src/main/java/com/example/heartratecomparison/`） | 职责 |
+|---|---|
+| `MainActivity.kt` | 入口、运行时权限、CSV 导入路由（main / loading / chart / error） |
+| `NavigationBarHelper.kt` | edge-to-edge 系统栏统一处理，API 分支、Flip 外屏、insets 监听兜底 |
+| `MemoryReceiver.kt` | 动态注册 HyperOS `TRIM` 内存预警，触发 `releaseMemory()` 释放历史缓存 |
+| `bluetooth/` | `HeartRateService`（状态、命令分发、30 秒电量刷新）、`BluetoothScanner`、`BluetoothConnector`、`HeartRateParser` |
+| `data/` | `CsvRecorder`（Channel 单消费者录制）、`CsvExporter`、`CsvImporter`、`HeartRateDatabase`（v3，MIGRATION_1_2 / 2_3）、`RecordDao`、三个 `@Entity` |
+| `model/` | `DeviceState`（连接态 + `ArrayDeque` 历史 + dirty）、`HeartRatePoint`（epoch 秒 + 心率）、`UiDeviceState`（卡片稳定模型，不含历史）、`DeviceInfo` |
+| `ui/ClipReveal.kt` / `ui/ClipRevealLayout.kt` | 圆形扩散一镜到底转场的调度与裁剪容器 |
+| `ui/chart/` | `MultiHeartRateChart` 实时曲线 |
+| `ui/common/` | `GlassDialog`（确认弹窗、设备信息弹窗） |
+| `ui/components/` | `LeftPanel`（三图标 + 设备列表）、`DeviceItem`（卡片与自绘图标） |
+| `ui/icon/` | `MiuixShareIcon`（本地 `ImageVector`） |
+| `ui/screen/` | `MainScreen`、`HistoryScreen`、`CsvChartDialog`、`SplashScreen` |
+| `ui/theme/` | `Color`（10 色图表调色盘）、`Theme`（Material 3 + 动态圆角）、`Type` |
 
-### 数据存储与安全
+## 一镜到底转场
 
-- **私有目录**：Room 数据库位于 `/data/data/<包名>/databases/`，全程无需任何存储权限
-- **自动保存**：秒切换落库 + 独立协程**每 5 秒强制落库**（含当前秒缓冲 + 汇总更新 + 电量快照），进程被杀最多丢 ≤5 秒
-- **同秒去重**：`hr_samples` 唯一索引 `(sessionId, second, deviceAddress)` + REPLACE 写入，5 秒强刷与秒切换写同一行不会产生重复
-- **电量快照**：起始电量（录制开始时）+ 录制中每 30 秒周期重读 + 结束电量（停止时强制写入）；电量变化时自动记录（同值去重）
-- **会话总结**：每设备有效样本数（JSON）、全局平均心率，每 5 秒随强刷更新、停止时最终修正
-- **数据不丢**：录制 Channel 保持 UNLIMITED，积压监控仅告警不改行为
+点击历史图标进入历史页时，不是 Activity 跳转，而是在本窗口 `android.R.id.content` 上挂一层全屏覆盖层（`TouchBlockingHost` > `ClipRevealLayout` > `ComposeView(HistoryScreen)`）：
 
-### 交互说明（主界面三图标）
+1. 点击前用 `positionInWindow()` 采集按钮窗口矩形，以图标中心构造 40dp 圆的外接矩形；
+2. 用 `decorView.draw(Canvas)` 局部截取该区域像素，铺在起始圆内 —— f=0 时与真实图标逐像素重合；
+3. 圆从锚点向外扩散到覆盖全屏（`radius = startR + (endR - startR) * f`，`endR` 为圆心到最远屏角距离 +1px），580ms `FastOutSlowIn`；返回沿同一几何收拢，420ms `FastOutLinearIn`；
+4. 锚点像素 0→0.22 淡出、历史页内容 0.48→0.88 淡入，两层都钉死屏幕坐标、只做透明度交叉，不做缩放或位移；
+5. 返回键 / 左滑返回 / 页内返回由 `OnBackPressedCallback` 统一接管，动画期间覆盖层吞掉全部触摸。
+
+实现口径对齐 `sportlink` 手机端「设置齿轮 → 运动参数设置」的容器变换；差异是本项目历史页为**同窗口覆盖层**，不引入其跨 Activity 的 `AppTransitions` Handoff，源端截图也用 View 层局部截取替代 `GraphicsLayer`（本项目 Compose BOM 2024.02.00 无 `rememberGraphicsLayer`，避免为动画升级整个编译器链）。
+
+几个踩过坑的硬约束：首帧 `PreDraw` 必须返回 `false` 取消首绘，否则整页先闪一帧；`ClipRevealLayout` 用 `clipToOutline` + `canvas.clipPath` 双层圆形裁剪（minSdk 26 不能用 API 30 的 `Outline.setCircle`，改以正方形 `setRoundRect` + 半径=半边长等效），**稳态必须关闭 `clipToOutline` 且 outline 给全屏矩形**，空 outline 会把整页裁没；Activity 声明了 `configChanges`，覆盖层存续期间旋转需按占比重映射圆心。截图失败时自动降级为纯色圆扩散，动画不中断。
+
+## 交互说明（主界面三图标）
 
 | 图标 | 位置 | 行为 |
-|------|------|------|
-| 🕘 历史（蓝） | 最左 | 点击进入历史记录 |
-| 🔍 搜索（红） | 中间 | 点击扫描；扫描中图标变进度环 |
-| ⭕ 记录（红） | 最右 | 点击开始记录（无设备时置灰）；**记录中长按 3 秒停止**（按住显示进度环，短按不触发） |
+|---|---|---|
+| 历史（蓝） | 最左 | 点击后从图标处圆形扩散进入历史记录 |
+| 搜索 | 中间 | 点击扫描，扫描中切换为进度环 |
+| 记录 | 最右 | 点击开始记录（无设备时置灰）；记录中长按 3 秒停止，按住显示进度环 |
 
-### 数据流
+## 国际化与主题
 
+所有 UI 字符串由 `res/values*/strings.xml` 管理，共 **13 种语言**：默认简体中文，以及 de / en / es / fr / it / ja / ko / nl / pl / pt / ru / zh-rTW（`values-night` 是夜间主题资源，不计入语言）。`localization_tools/` 提供键集合与顺序校验（以 `values-en` 为基准）、按基准重排、批量补齐新增字符串三个 Python 脚本。深浅色主题跟随系统，图表在深色下与背景分层。
+
+## 权限
+
+| 权限 | 用途 |
+|---|---|
+| `BLUETOOTH_SCAN`（`neverForLocation`） | BLE 扫描；该标志使 Android 12+ 免除定位权限 |
+| `BLUETOOTH_CONNECT` | 连接蓝牙设备 |
+| `ACCESS_FINE_LOCATION` | 仅 Android 8~11 的 BLE 扫描需要，Android 12+ 运行时不再请求 |
+| `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_CONNECTED_DEVICE` | 前台服务及其蓝牙设备类型 |
+| `POST_NOTIFICATIONS` | Android 13+ 前台服务通知，拒绝时引导至系统设置页 |
+| `VIBRATE` | 操作振动反馈 |
+
+录制开始时还会请求忽略电池优化。数据存储于 `/data/data/<包名>/databases/`，**不需要任何存储或文件访问权限**。
+
+## 构建与验证
+
+环境由 `gradle.properties` 固定：JDK 17（`org.gradle.java.home`；JBR 21 会因 `core-for-system-modules.jar` 的 jlink 解析失败）、Android SDK 34、腾讯镜像仓库（`settings.gradle.kts`）。
+
+日常改动只需**快速编译验证**，不产出 APK、不装机：
+
+```bash
+./gradlew :app:compileReleaseKotlin --no-daemon --offline
 ```
-蓝牙设备 ──BLE──▶ BluetoothConnector
-                      │
-                      ├─▶ HeartRateParser.parse() ──▶ 心率值
-                      └─▶ Battery Level Read ──▶ 电量（连接时 + 每 30s 重读）
-                              │
-                              ▼
-                      HeartRateService (节流合并 emitState)
-                              │
-                    ┌─────────┼─────────┐
-                    ▼         ▼         ▼
-                 MainScreen  CsvRecorder  Notification
-                 (实时图表)  (Room 写入)   (前台通知)
-                              │
-                              ▼
-              HeartRateDatabase (sessions / hr_samples / battery_snapshots)
-```
 
-### 项目结构
+- Windows 上编译前建议先停掉陈旧的 Gradle / Kotlin daemon，避免 `classpath-snapshot`、`fileHashes.lock` 一类文件锁导致的假失败；
+- 只有出包、签名、装机才需要 release 组装流程，由维护者按需执行；工程当前**未配置签名**，release 变体启用 R8 与资源压缩；
+- 仓库根目录的 `build/` 仅含 Gradle 问题报告，`app/release/` 与 `.workbuddy/`、`local.properties` 均被 `.gitignore` 忽略。
+
+## 项目结构
 
 ```
 app/src/main/java/com/example/heartratecomparison/
-├── bluetooth/
-│   ├── BluetoothScanner.kt     # BLE 扫描（15 秒超时，过滤心率服务 UUID）
-│   ├── BluetoothConnector.kt   # GATT 连接 + 心率通知 + 电量读取/周期重读
-│   ├── HeartRateParser.kt      # 8-bit / 16-bit 心率数据解析
-│   └── HeartRateService.kt     # 前台服务（状态节流、录制控制、电量刷新循环）
-├── data/
-│   ├── CsvRecorder.kt          # Room 录制器（秒聚合 + 5s 强刷 + 汇总统计）
-│   ├── CsvExporter.kt          # 会话 → 带 Summary 的 CSV（UTF-8 BOM）
-│   ├── HeartRateDatabase.kt    # Room 数据库（私有目录，Migration v1→v2）
-│   ├── RecordDao.kt            # DAO（REPLACE 写入、汇总更新、电量快照）
-│   ├── RecordSession.kt        # 会话实体（含 deviceSampleCounts/avgHeartRate）
-│   ├── HrSample.kt             # 心率样本实体（唯一索引防重复）
-│   └── BatterySnapshot.kt      # 电量快照实体
-├── model/
-│   ├── DeviceState.kt          # 设备连接状态（ArrayDeque 历史 + dirty 标记）
-│   └── UiDeviceState.kt        # UI 数据模型
-├── ui/
-│   ├── chart/MultiHeartRateChart.kt  # 实时图表（限帧 + 降采样 + 渐变填充）
-│   ├── components/LeftPanel.kt       # 三图标操作区 + 设备列表
-│   ├── components/DeviceItem.kt      # 设备卡片（自绘电池/心率图标 + 过渡动画）
-│   ├── screen/SplashScreen.kt        # 开屏动画
-│   ├── screen/MainScreen.kt          # 主页面（横竖屏自适应）
-│   ├── screen/HistoryScreen.kt       # 历史记录页（Room 数据源）
-│   ├── screen/CsvChartDialog.kt      # CSV 图表回放（Room 数据源）
-│   └── theme/Theme.kt / Color.kt / Type.kt
-├── NavigationBarHelper.kt     # edge-to-edge 系统栏沉浸统一处理
-├── MainActivity.kt            # 入口 Activity
-└── MemoryReceiver.kt          # HyperOS 内存预警适配（释放图表历史缓存）
+├── MainActivity.kt / NavigationBarHelper.kt / MemoryReceiver.kt
+├── bluetooth/   BluetoothScanner · BluetoothConnector · HeartRateParser · HeartRateService
+├── data/        CsvRecorder · CsvExporter · CsvImporter · HeartRateDatabase · RecordDao
+│                RecordSession · HrSample · BatterySnapshot
+├── model/       DeviceState · UiDeviceState · DeviceInfo
+└── ui/
+    ├── ClipReveal.kt / ClipRevealLayout.kt
+    ├── chart/MultiHeartRateChart.kt
+    ├── common/GlassDialog.kt
+    ├── components/LeftPanel.kt · DeviceItem.kt
+    ├── icon/MiuixShareIcon.kt
+    ├── screen/MainScreen.kt · HistoryScreen.kt · CsvChartDialog.kt · SplashScreen.kt
+    └── theme/Color.kt · Theme.kt · Type.kt
 ```
 
-### 国际化
+## 架构演进
 
-所有 UI 字符串通过 `res/values-*/strings.xml` 管理，支持 7 种语言：简体中文（默认）、English、日本語、한국어、Deutsch、Français、繁體中文。
-
-### 依赖
-
-| 依赖 | 版本 | 用途 |
-|------|------|------|
-| Jetpack Compose BOM | 2024.02.00 | UI 框架版本管理 |
-| Material 3 | (BOM 管理) | Material Design 3 组件 |
-| Material Icons Extended | (BOM 管理) | 扩展图标库 |
-| **Room** | 2.6.1（kapt） | 心率数据持久化 |
-| Coroutines | 1.7.3 | 异步编程 |
-| AndroidX Core KTX | 1.12.0 | Kotlin 扩展 |
-| Lifecycle Runtime KTX | 2.7.0 | 生命周期感知 |
-
-无第三方 BLE 库依赖，全部使用 Android 标准蓝牙 API。
-
-## 权限说明
-
-| 权限 | 用途 |
-|------|------|
-| `BLUETOOTH_SCAN`（含 `neverForLocation` 标志） | BLE 扫描；标志声明"扫描不用于推算位置"，Android 12+ 可免除定位权限 |
-| `BLUETOOTH_CONNECT` | 连接蓝牙设备 |
-| `ACCESS_FINE_LOCATION` | 仅供 Android 8~11 的 BLE 扫描使用（Android 12+ 运行时不再请求） |
-| `FOREGROUND_SERVICE` | 前台服务保活 |
-| `FOREGROUND_SERVICE_CONNECTED_DEVICE` | 蓝牙前台服务类型 |
-| `POST_NOTIFICATIONS` | 前台服务通知（Android 13+） |
-| `VIBRATE` | 操作振动反馈 |
-
-> 数据存储在应用私有目录（Room），**不需要任何存储/文件访问权限**。
-
-## 构建
-
-```bash
-# 需要 JDK 17（AGP 8.2 要求；JBR 21 无法处理 SDK core-for-system-modules.jar）
-# gradle.properties 已配置 org.gradle.java.home 指向本机 JDK 17
-
-./gradlew assembleRelease
-```
-
-- 需要 Android SDK 34 和 JDK 17
-- 产物：`app/build/outputs/apk/release/app-release-unsigned.apk`
-
-## 历史迭代要点（开发记录）
-
-- **Room 化（v2）**：CSV 文件 → Room 数据库；分享时动态生成 CSV（含 Summary 汇总区，UTF-8 BOM 防中文乱码）
-- **交互重构**：单按钮长按 → 搜索/记录/历史三图标；记录停止改为长按 3 秒（防误触）
-- **内存优化**：emitState 限频节流 + 增量快照、history 改 ArrayDeque、releaseMemory 修复数据源、录制 Channel 积压监控
-- **系统栏**：横屏不隐藏系统栏且内容不侵入状态栏；仅数据全屏查看时隐藏
+- **存储**：CSV 文件 → Room（当前 v3，含 `MIGRATION_1_2` 汇总列/电量表/唯一索引、`MIGRATION_2_3` 清理单列索引）；分享时按需生成 CSV
+- **状态**：全量快照 → 120ms 事件驱动节流 + 卡片 / 图表历史 / 设备信息三路 StateFlow 分流，`UiDeviceState` 不再携带心率历史
+- **交互**：单按钮长按 → 搜索/记录/历史三图标；记录停止改成长按 3 秒防误触
+- **转场**：`AnimatedContent` 左右滑动 → 锚点线上下撑开 → 当前从图标圆形扩散的一镜到底
+- **适配**：横竖屏与平板分栏、13 语言、HyperOS 折叠屏/Flip/内存预警
 
 ---
 
-# Heart Rate Comparison Tool
-
-An Android app for connecting multiple Bluetooth heart rate devices simultaneously, comparing real-time heart rate data, and recording it to a Room database in the app's private storage. Sessions can be exported as CSV with a summary section.
-
-## Features
-
-- **Splash Animation**: Particle-aggregated heart + ECG waveform animation
-- **Multi-device Connection**: Connect multiple BLE heart rate sensors at once
-- **Battery Level**: Auto-read via Battery Service / Device Information Service, custom battery icon
-- **Real-time Chart**: Live multi-device HR curves with gradient fill, frame throttling + downsampling
-- **Room Storage**: HR data aggregated per second into Room DB (private directory, no storage permission needed)
-- **Auto-save**: Forced DB flush every 5 seconds (≤5s data loss window on process kill)
-- **Battery Snapshots**: Start battery + 30s periodic re-read + end battery (deduplicated)
-- **Session Summary**: Per-device sample count, average HR, duration (stored in Room, included in CSV export)
-- **Recording**: Tap record icon to start; **long-press 3s to stop** (progress ring, anti-mistouch)
-- **History**: Browse sessions (tap = chart, double-tap = share CSV, long-press = delete)
-- **CSV Export**: Dynamically generated with UTF-8 BOM + `Summary:` section (English labels)
-- **Chart Playback**: Zoom/pan gestures with gradient fill
-- **7 Languages**: zh-CN / en / ja / ko / de / fr / zh-TW
-- **Dark/Light Theme**, large-screen adaptation, HyperOS support
-
-## Requirements
-
-- Android 8.0+ (API 26), Bluetooth 4.0+ (BLE)
-
-## Tech Stack
-
-Kotlin · Jetpack Compose + Material 3 · **Room 2.6.1** · Android BLE API · Coroutines/Flow · minSdk 26 / targetSdk 34
-
-## Permissions
-
-`BLUETOOTH_SCAN` (with `neverForLocation`) · `BLUETOOTH_CONNECT` · `ACCESS_FINE_LOCATION` (Android 8~11 only) · `FOREGROUND_SERVICE` · `FOREGROUND_SERVICE_CONNECTED_DEVICE` · `POST_NOTIFICATIONS` · `VIBRATE`
-
-> No storage permission required — data lives in the app's private Room database.
-
-## Build
-
-```bash
-./gradlew assembleRelease   # Requires JDK 17 (configured via org.gradle.java.home)
-```
-
-APK output: `app/build/outputs/apk/release/app-release-unsigned.apk`
-
----
-
-## BLE 踩坑记录 / BLE Development Pitfalls
+## BLE 踩坑记录
 
 ### 1. 很多心率设备没有 Battery Service
 
-大量心率设备只实现 Heart Rate Service（`0x180D`），不暴露 Battery Service（`0x180F`），`gatt.getService(0x180F)` 会返回 `null`。**解决方案**：增加 fallback，依次尝试 Battery Service 与 Device Information Service（`0x180A`）。
+大量心率设备只实现 Heart Rate Service（`0x180D`），不暴露 Battery Service（`0x180F`），`gatt.getService(0x180F)` 返回 `null`。解决：依次尝试 `0x180F` 与 Device Information Service（`0x180A`）。
 
-### 2. onDescriptorWrite 没有 API 33+ 重载
+### 2. `onDescriptorWrite` 没有 API 33+ 重载
 
-`onCharacteristicRead` / `onCharacteristicChanged` 在 API 33 有新增 `value` 参数的重载，但 **`onDescriptorWrite` 只有旧签名**，不要为其添加 `value` 参数（会报 "overrides nothing"）。
+`onCharacteristicRead` / `onCharacteristicChanged` 在 API 33 新增了带 `value` 参数的重载，但 `onDescriptorWrite` **只有旧签名**，为其添加 `value` 参数会报 "overrides nothing"。
 
-### 3. CCCD 写入与特征读取的时序问题
+### 3. CCCD 写入与特征读取的时序
 
-Android BLE 的 GATT 操作是串行队列，`writeDescriptor`（启用心率通知）未完成时发起电池读取会**静默失败**。**解决方案**：在 `onDescriptorWrite` 回调中再发起电池读取，确保 CCCD 写入完成。
+BLE GATT 操作是串行队列，`writeDescriptor`（启用心率通知）未完成时发起电池读取会静默失败。解决：在 `onDescriptorWrite` 回调里再发起电池读取。
 
-### 4. onCharacteristicRead 需要同时处理两个重载
+### 4. API 33 前后的读/通知回调要同时重写两个版本
 
-API 33 前后 `onCharacteristicRead` 签名不同（旧版数据在 `characteristic.value`，新版作为参数传入）。**必须同时重写两个版本**，否则对应 API 版本上不会触发回调。
+旧版数据在 `characteristic.value`，新版通过参数传入；`onCharacteristicRead` 与 `onCharacteristicChanged` 都必须同时重写两个重载，否则对应系统版本上不触发回调。
 
-### 5. Battery Level 特征值的解析
+### 5. Battery Level 是单字节无符号整数
 
-Battery Level 是单字节无符号整数（0~100），Kotlin 的 `Byte` 是有符号的，`value[0].toInt()` 对 `0x80` 以上会产生负数。**正确写法**：`value?.getOrNull(0)?.toInt()?.and(0xFF)`。
+Kotlin 的 `Byte` 有符号，`value[0].toInt()` 对 `0x80` 以上会得到负数。正确写法：`value?.getOrNull(0)?.toInt()?.and(0xFF)`。
+
+---
+
+# Heart Rate Comparison (English summary)
+
+An Android app (Kotlin + Jetpack Compose) that connects multiple BLE heart-rate sensors simultaneously, plots live multi-device curves, records per-second samples into a private Room database, and supports history playback, CSV import/export and sharing. All data lives in app-private storage — **no storage permission required**.
+
+## Features
+
+- Multi-device BLE scanning/connection, 8-bit & 16-bit Heart Rate Measurement parsing, battery level with `0x180F` → `0x180A` fallback, DIS device info
+- Live Canvas chart (300 s window, frame throttling, forward-fill, gradient fill), device cards with custom battery/heart icons, particle + ECG splash
+- Room v3 storage (`sessions` / `hr_samples` / `battery_snapshots`), forced flush every 5 s, unique index de-duplication, battery snapshots, per-session summary
+- History list (landscape two-column grid, tablet split view), chart playback with zoom/pan/scrub, CSV export with UTF-8 BOM and `Summary:` section via FileProvider
+- CSV **import** through `ACTION_VIEW` ("open with"), written into Room and opened in the chart directly
+- One-shot container transition: tapping the history icon expands a 40dp circle into the full page and collapses back on return (580 ms / 420 ms, cross-fade only, no content scaling)
+- 13 languages, dark/light theme, large-screen and HyperOS (foldable / Flip / memory trim) adaptation
+
+## Requirements & stack
+
+Android 8.0+ (API 26), BLE 4.0+; build with JDK 17 + Android SDK 34 + Gradle 8.2.
+
+Kotlin 1.9.22 · AGP 8.2.0 · Compose BOM 2024.02.00 + Material 3 · Room 2.6.1 via KSP · Coroutines 1.7.3 · minSdk 26 / targetSdk 34. No third-party BLE library.
+
+## Build & verification
+
+```bash
+./gradlew :app:compileReleaseKotlin --no-daemon --offline
+```
+
+This is the routine verification step — it compiles without producing an APK. Release packaging/signing is a separate maintainer action; `signingConfigs` is not configured, while R8 minification and resource shrinking are enabled for release.
+
+## Permissions
+
+`BLUETOOTH_SCAN` (`neverForLocation`) · `BLUETOOTH_CONNECT` · `ACCESS_FINE_LOCATION` (Android 8–11 only) · `FOREGROUND_SERVICE` · `FOREGROUND_SERVICE_CONNECTED_DEVICE` · `POST_NOTIFICATIONS` · `VIBRATE`
